@@ -29,7 +29,7 @@
  */
 
 #include <SPI.h>
-#include <Ethernet.h>
+#include <NativeEthernet.h>
 
 
 #define APIKEY         "YOUR API KEY GOES HERE" // replace your Pachube api key here

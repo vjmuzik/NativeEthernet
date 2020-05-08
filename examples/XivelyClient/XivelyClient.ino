@@ -25,7 +25,7 @@
  */
 
 #include <SPI.h>
-#include <Ethernet.h>
+#include <NativeEthernet.h>
 
 #define APIKEY         "YOUR API KEY GOES HERE" // replace your xively api key here
 #define FEEDID         00000 // replace your feed ID

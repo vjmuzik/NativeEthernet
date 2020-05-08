@@ -11,7 +11,7 @@
 */
 
 #include <SPI.h>
-#include <Ethernet.h>
+#include <NativeEthernet.h>
 
 void setup() {
   // You can use Ethernet.init(pin) to configure the CS pin

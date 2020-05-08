@@ -5,7 +5,7 @@
 #ifndef DNSClient_h
 #define DNSClient_h
 
-#include "Ethernet.h"
+#include "NativeEthernet.h"
 
 class DNSClient
 {

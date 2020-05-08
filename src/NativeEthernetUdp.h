@@ -34,5 +34,5 @@
  * bjoern@cs.stanford.edu 12/30/2008
  */
 
-#include "Ethernet.h"
+#include "NativeEthernet.h"
 

@@ -27,16 +27,20 @@
  */
 
 #include <Arduino.h>
-#include "Ethernet.h"
-#include "Dns.h"
+#include "NativeEthernet.h"
+#include "NativeDns.h"
 #include "utility/w5100.h"
 
 /* Start EthernetUDP socket, listening at local port PORT */
 uint8_t EthernetUDP::begin(uint16_t port)
 {
-	if (sockindex < MAX_SOCK_NUM) Ethernet.socketClose(sockindex);
+    if (sockindex < MAX_SOCK_NUM) {
+        Ethernet.socketClose(sockindex);
+    }
 	sockindex = Ethernet.socketBegin(SnMR::UDP, port);
-	if (sockindex >= MAX_SOCK_NUM) return 0;
+    if (sockindex >= MAX_SOCK_NUM) {
+        return 0;
+    }
 	_port = port;
 	_remaining = 0;
 	return 1;
@@ -64,7 +68,6 @@ int EthernetUDP::beginPacket(const char *host, uint16_t port)
 	int ret = 0;
 	DNSClient dns;
 	IPAddress remote_addr;
-
 	dns.begin(Ethernet.dnsServerIP());
 	ret = dns.getHostByName(host, remote_addr);
 	if (ret != 1) return ret;
@@ -98,35 +101,68 @@ size_t EthernetUDP::write(const uint8_t *buffer, size_t size)
 
 int EthernetUDP::parsePacket()
 {
+//    Serial.println("p1");
+//    Serial.send_now();
 	// discard any remaining bytes in the last packet
-	while (_remaining) {
-		// could this fail (loop endlessly) if _remaining > 0 and recv in read fails?
-		// should only occur if recv fails after telling us the data is there, lets
-		// hope the w5100 always behaves :)
-		read((uint8_t *)NULL, _remaining);
-	}
+//    if(_remaining){
+//        Serial.println("Remaining Data Discarded!");
+//        Serial.print("Socket Index: ");
+//        Serial.println(sockindex);
+//        Serial.send_now();
+//        fnet_socket_recv(Ethernet.socket_ptr[sockindex], &tmpBuf, sizeof(tmpBuf), 0);
+//        _remaining = 0;
+//    }
+//    Serial.println("p2");
+//    Serial.send_now();
 
-	if (Ethernet.socketRecvAvailable(sockindex) > 0) {
+	if ((_remaining = Ethernet.socketRecvAvailable(sockindex)) > 0) {
+        if(_remaining == -1){
+            int8_t error_handler = fnet_error_get();
+//                Serial.print("RemainingErr: ");
+//                Serial.send_now();
+//                Serial.println(error_handler);
+//            Serial.print("Socket Index: ");
+//            Serial.println(sockindex);
+//                Serial.send_now();
+            _remaining = 0;
+            return 0;
+        }
 		//HACK - hand-parse the UDP packet using TCP recv method
-		uint8_t tmpBuf[8];
-		int ret=0;
-		//read 8 header bytes and get IP and port from it
-		ret = Ethernet.socketRecv(sockindex, tmpBuf, 8);
-		if (ret > 0) {
-			_remoteIP = tmpBuf;
-			_remotePort = tmpBuf[4];
-			_remotePort = (_remotePort << 8) + tmpBuf[5];
-			_remaining = tmpBuf[6];
-			_remaining = (_remaining << 8) + tmpBuf[7];
+        struct fnet_sockaddr from;
+        fnet_size_t fromlen = sizeof(from);
+        
+		fnet_ssize_t ret = fnet_socket_recvfrom(Ethernet.socket_ptr[sockindex], &Ethernet.socket_buf_receive[sockindex], sizeof(Ethernet.socket_buf_receive[sockindex]), 0, &from, &fromlen);
+        Ethernet.socket_buf_index[sockindex] = 0;
 
-			// When we get here, any remaining bytes are the data
-			ret = _remaining;
+		//read 8 header bytes and get IP and port from it
+        int8_t error_handler = fnet_error_get();
+                if(ret == -1){
+//                    Serial.print("RecvErr: ");
+//                    Serial.send_now();
+//                    Serial.println(error_handler);
+//                    Serial.print("Socket Index: ");
+//                    Serial.println(sockindex);
+//                    Serial.print("Remaining: ");
+//                    Serial.println(_remaining);
+//                    Serial.send_now();
+                    return 0;
+                }
+        if(error_handler == -6){
+            return 0;
+        }
+		if (ret > 0) {
+			_remoteIP = from.sa_data;
+            _remotePort = FNET_HTONS(from.sa_port);
 		}
+//        _remaining = 0;
 		return ret;
 	}
 	// There aren't any packets available
 	return 0;
 }
+/*{
+    return 2;
+}*/
 
 int EthernetUDP::read()
 {

@@ -1,11 +1,11 @@
 {
-  "name": "Ethernet",
+  "name": "NativeEthernet",
   "keywords": "http, web, server, ethernet",
-  "description": "Ethernet Library for Teensy",
+  "description": "Native Ethernet Library for Teensy 4.1",
   "repository":
   {
     "type": "git",
-    "url": "https://github.com/PaulStoffregen/Ethernet.git"
+    "url": "https://github.com/vjmuzik/NativeEthernet.git"
   },
   "frameworks": "arduino",
   "platforms": "teensy"

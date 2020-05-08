@@ -23,7 +23,7 @@
  by Tom Igoe
  */
 
-#include <Ethernet.h>
+#include <NativeEthernet.h>
 // the sensor communicates using SPI, so include the library:
 #include <SPI.h>
 

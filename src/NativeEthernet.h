@@ -38,6 +38,8 @@
 #else
 #define MAX_SOCK_NUM 8
 #endif
+#define FNET_SOCKET_DEFAULT_SIZE 1024 * 2
+#define FNET_POLL_TIME 1000 //Time in microseconds
 
 // By default, each socket uses 2K buffers inside the Wiznet chip.  If
 // MAX_SOCK_NUM is set to fewer than the chip's maximum, uncommenting
@@ -49,6 +51,7 @@
 
 
 #include <Arduino.h>
+#include <fnet.h>
 #include "Client.h"
 #include "Server.h"
 #include "Udp.h"
@@ -75,7 +78,18 @@ class EthernetClass {
 private:
 	static IPAddress _dnsServerAddress;
 	static DhcpClass* _dhcp;
+    static DMAMEM uint8_t stack_heap[64u * 1024u]; //Buffer for stack usage, each service has it's own
+    static DMAMEM uint8_t socket_buf_transmit[MAX_SOCK_NUM][FNET_SOCKET_DEFAULT_SIZE];
+    static DMAMEM uint16_t socket_buf_len[MAX_SOCK_NUM];
+    static DMAMEM uint16_t socket_port[MAX_SOCK_NUM];
+    static DMAMEM uint8_t* socket_addr[MAX_SOCK_NUM];
+    static IntervalTimer _fnet_poll;
+    static volatile boolean link_status;
+    
 public:
+    static volatile fnet_socket_t socket_ptr[MAX_SOCK_NUM];
+    static DMAMEM uint8_t socket_buf_receive[MAX_SOCK_NUM][FNET_SOCKET_DEFAULT_SIZE];
+    static DMAMEM uint16_t socket_buf_index[MAX_SOCK_NUM];
 	// Initialise the Ethernet shield to use the provided MAC address and
 	// gain the rest of the configuration through DHCP.
 	// Returns 0 if the DHCP configuration failed, and 1 if it succeeded
@@ -95,13 +109,13 @@ public:
 	static IPAddress localIP();
 	static IPAddress subnetMask();
 	static IPAddress gatewayIP();
-	static IPAddress dnsServerIP() { return _dnsServerAddress; }
+	static IPAddress dnsServerIP() { return fnet_netif_get_ip4_dns(fnet_netif_get_default()); }
 
 	void setMACAddress(const uint8_t *mac_address);
 	void setLocalIP(const IPAddress local_ip);
 	void setSubnetMask(const IPAddress subnet);
 	void setGatewayIP(const IPAddress gateway);
-	void setDnsServerIP(const IPAddress dns_server) { _dnsServerAddress = dns_server; }
+    void setDnsServerIP(const IPAddress dns_server);
 	void setRetransmissionTimeout(uint16_t milliseconds);
 	void setRetransmissionCount(uint8_t num);
 
@@ -142,6 +156,14 @@ private:
 	static bool socketSendUDP(uint8_t s);
 	// Initialize the "random" source port number
 	static void socketPortRand(uint16_t n);
+    
+    static fnet_return_t teensy_mutex_init(fnet_mutex_t *mutex);
+    static void teensy_mutex_release(fnet_mutex_t *mutex);
+    static void teensy_mutex_lock(fnet_mutex_t *mutex);
+    static void teensy_mutex_unlock(fnet_mutex_t *mutex);
+    static fnet_time_t timer_get_ms(void);
+    static void link_callback(fnet_netif_desc_t netif, fnet_bool_t connected, void *callback_param);
+    static void dhcp_cln_callback_updated(fnet_dhcp_cln_desc_t _dhcp_desc, fnet_netif_desc_t netif, void *p);
 };
 
 extern EthernetClass Ethernet;
@@ -157,10 +179,11 @@ private:
 	uint16_t _offset; // offset into the packet being sent
 
 protected:
-	uint8_t sockindex;
-	uint16_t _remaining; // remaining bytes of incoming packet yet to be processed
+	
+	volatile uint16_t _remaining; // remaining bytes of incoming packet yet to be processed
 
 public:
+    uint8_t sockindex;
 	EthernetUDP() : sockindex(MAX_SOCK_NUM) {}  // Constructor
 	virtual uint8_t begin(uint16_t);      // initialize, start listening on specified port. Returns 1 if successful, 0 if there are no sockets available to use
 	virtual uint8_t beginMulticast(IPAddress, uint16_t);  // initialize, start listening on specified port. Returns 1 if successful, 0 if there are no sockets available to use
@@ -213,8 +236,8 @@ public:
 
 class EthernetClient : public Client {
 public:
-	EthernetClient() : sockindex(MAX_SOCK_NUM), _timeout(1000) { }
-	EthernetClient(uint8_t s) : sockindex(s), _timeout(1000) { }
+	EthernetClient() : sockindex(MAX_SOCK_NUM), _timeout(10000), _remaining(0) { }
+	EthernetClient(uint8_t s) : sockindex(s), _timeout(10000), _remaining(0) { }
 
 	uint8_t status();
 	virtual int connect(IPAddress ip, uint16_t port);
@@ -235,9 +258,11 @@ public:
 	virtual bool operator==(const EthernetClient&);
 	virtual bool operator!=(const EthernetClient& rhs) { return !this->operator==(rhs); }
 	uint8_t getSocketNumber() const { return sockindex; }
-	virtual uint16_t localPort();
-	virtual IPAddress remoteIP();
-	virtual uint16_t remotePort();
+	// Return the IP address of the host who sent the current incoming packet
+    virtual IPAddress remoteIP() { return _remoteIP; };
+    // Return the port of the host who sent the current incoming packet
+    virtual uint16_t remotePort() { return _remotePort; };
+    virtual uint16_t localPort() { return _port; }
 	virtual void setConnectionTimeout(uint16_t timeout) { _timeout = timeout; }
 
 	friend class EthernetServer;
@@ -247,6 +272,10 @@ public:
 private:
 	uint8_t sockindex; // MAX_SOCK_NUM means client not in use
 	uint16_t _timeout;
+    uint16_t _port; // local port to listen on
+    IPAddress _remoteIP; // remote IP address for the incoming packet whilst it's being processed
+    uint16_t _remotePort; // remote port for the incoming packet whilst it's being processed
+    uint16_t _remaining;
 };
 
 

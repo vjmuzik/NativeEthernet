@@ -19,8 +19,8 @@
  */
 
 #include <Arduino.h>
-#include "Ethernet.h"
-#include "Dns.h"
+#include "NativeEthernet.h"
+#include "NativeDns.h"
 #include "utility/w5100.h"
 
 int EthernetClient::connect(const char * host, uint16_t port)
@@ -52,14 +52,20 @@ int EthernetClient::connect(IPAddress ip, uint16_t port)
 #else
 	if (ip == IPAddress(0ul) || ip == IPAddress(0xFFFFFFFFul)) return 0;
 #endif
-	sockindex = Ethernet.socketBegin(SnMR::TCP, 0);
+	sockindex = Ethernet.socketBegin(SnMR::TCP, 8888);
 	if (sockindex >= MAX_SOCK_NUM) return 0;
 	Ethernet.socketConnect(sockindex, rawIPAddress(ip), port);
+    _port = port;
 	uint32_t start = millis();
 	while (1) {
 		uint8_t stat = Ethernet.socketStatus(sockindex);
-		if (stat == SnSR::ESTABLISHED) return 1;
-		if (stat == SnSR::CLOSE_WAIT) return 1;
+//        Serial.print("Connect: ");
+//        Serial.println(stat, HEX);
+        if (stat == SnSR::ESTABLISHED || stat == SnSR::CLOSE_WAIT) {
+            _remoteIP = ip;
+            _remotePort = port;
+            return 1;
+        }
 		if (stat == SnSR::CLOSED) return 0;
 		if (millis() - start > _timeout) break;
 		delay(1);
@@ -91,7 +97,37 @@ size_t EthernetClient::write(const uint8_t *buf, size_t size)
 int EthernetClient::available()
 {
 	if (sockindex >= MAX_SOCK_NUM) return 0;
-	return Ethernet.socketRecvAvailable(sockindex);
+	struct fnet_sockaddr _from;
+    fnet_size_t fromlen = sizeof(_from);
+    
+    int ret = 0;
+    if(_remaining == 0) {
+        ret = fnet_socket_recvfrom(Ethernet.socket_ptr[sockindex], &Ethernet.socket_buf_receive[sockindex], sizeof(Ethernet.socket_buf_receive[sockindex]), 0, &_from, &fromlen);
+        Ethernet.socket_buf_index[sockindex] = 0;
+    }
+    int8_t error_handler = fnet_error_get();
+    if(error_handler == -20){
+        return 0;
+    }
+    if(ret == -1){
+//        Serial.print("RecvAvailableErr: ");
+//        Serial.send_now();
+//        Serial.println(error_handler);
+//        Serial.send_now();
+        _remaining = 0;
+        return 0;
+    }
+    
+    if(ret){
+        _remoteIP = _from.sa_data;
+        _remotePort = FNET_HTONS(_from.sa_port);
+        _remaining = ret;
+//        Serial.print("Available: ");
+//        Serial.println(ret);
+//        Serial.send_now();
+    }
+    
+    return _remaining;
 	// TODO: do the Wiznet chips automatically retransmit TCP ACK
 	// packets if they are lost by the network?  Someday this should
 	// be checked by a man-in-the-middle test which discards certain
@@ -103,7 +139,9 @@ int EthernetClient::available()
 int EthernetClient::read(uint8_t *buf, size_t size)
 {
 	if (sockindex >= MAX_SOCK_NUM) return 0;
-	return Ethernet.socketRecv(sockindex, buf, size);
+    int16_t ret = Ethernet.socketRecv(sockindex, buf, size);
+    if(ret > 0) _remaining -= ret;
+    return ret;
 }
 
 int EthernetClient::peek()
@@ -116,7 +154,11 @@ int EthernetClient::peek()
 int EthernetClient::read()
 {
 	uint8_t b;
-	if (Ethernet.socketRecv(sockindex, &b, 1) > 0) return b;
+    int16_t ret = Ethernet.socketRecv(sockindex, &b, 1);
+    if (ret > 0) {
+        _remaining -= ret;
+        return b;
+    }
 	return -1;
 }
 
@@ -175,41 +217,3 @@ bool EthernetClient::operator==(const EthernetClient& rhs)
 	if (rhs.sockindex >= MAX_SOCK_NUM) return false;
 	return true;
 }
-
-// https://github.com/per1234/EthernetMod
-// from: https://github.com/ntruchsess/Arduino-1/commit/937bce1a0bb2567f6d03b15df79525569377dabd
-uint16_t EthernetClient::localPort()
-{
-	if (sockindex >= MAX_SOCK_NUM) return 0;
-	uint16_t port;
-	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
-	port = W5100.readSnPORT(sockindex);
-	SPI.endTransaction();
-	return port;
-}
-
-// https://github.com/per1234/EthernetMod
-// returns the remote IP address: http://forum.arduino.cc/index.php?topic=82416.0
-IPAddress EthernetClient::remoteIP()
-{
-	if (sockindex >= MAX_SOCK_NUM) return IPAddress((uint32_t)0);
-	uint8_t remoteIParray[4];
-	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
-	W5100.readSnDIPR(sockindex, remoteIParray);
-	SPI.endTransaction();
-	return IPAddress(remoteIParray);
-}
-
-// https://github.com/per1234/EthernetMod
-// from: https://github.com/ntruchsess/Arduino-1/commit/ca37de4ba4ecbdb941f14ac1fe7dd40f3008af75
-uint16_t EthernetClient::remotePort()
-{
-	if (sockindex >= MAX_SOCK_NUM) return 0;
-	uint16_t port;
-	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
-	port = W5100.readSnDPORT(sockindex);
-	SPI.endTransaction();
-	return port;
-}
-
-

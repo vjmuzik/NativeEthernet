@@ -49,13 +49,13 @@ EthernetClient EthernetServer::available()
 			if (stat == SnSR::ESTABLISHED || stat == SnSR::CLOSE_WAIT) {
                 int ret = fnet_socket_recv(Ethernet.socket_ptr[i], &Ethernet.socket_buf_receive[i], sizeof(Ethernet.socket_buf_receive[i]), MSG_PEEK);
 				if (ret > 0) {
-                    int8_t error_handler = fnet_error_get();
-                    if(ret == -1){
+//                    int8_t error_handler = fnet_error_get();
+//                    if(ret == -1){
 //                        Serial.print("RecvErr: ");
 //                        Serial.send_now();
 //                        Serial.println(error_handler);
 //                        Serial.send_now();
-                    }
+//                    }
                     
 					sockindex = i;
                     Ethernet.socket_buf_index[sockindex] = 0;

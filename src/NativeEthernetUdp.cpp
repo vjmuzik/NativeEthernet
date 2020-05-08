@@ -117,7 +117,7 @@ int EthernetUDP::parsePacket()
 
 	if ((_remaining = Ethernet.socketRecvAvailable(sockindex)) > 0) {
         if(_remaining == -1){
-            int8_t error_handler = fnet_error_get();
+//            int8_t error_handler = fnet_error_get();
 //                Serial.print("RemainingErr: ");
 //                Serial.send_now();
 //                Serial.println(error_handler);

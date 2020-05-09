@@ -90,7 +90,7 @@ makesocket:
         fnet_socket_setopt(socket_ptr[s], SOL_SOCKET, SO_SNDBUF, &bufsize_option, sizeof(bufsize_option));
     if(protocol == SnMR::TCP){
         fnet_socket_setopt(socket_ptr[s], IPPROTO_TCP, TCP_NODELAY, &tcpnodelay_option, sizeof(tcpnodelay_option));
-        fnet_socket_setopt(socket_ptr[s], IPPROTO_TCP, TCP_MSS, &bufsize_option, sizeof(bufsize_option));
+//        fnet_socket_setopt(socket_ptr[s], IPPROTO_TCP, TCP_MSS, &bufsize_option, sizeof(bufsize_option));
     }
     
     // bind the socket to the port
@@ -266,7 +266,9 @@ uint8_t EthernetClass::socketPeek(uint8_t s)
  */
 uint16_t EthernetClass::socketSend(uint8_t s, const uint8_t * buf, uint16_t len)
 {
-    return fnet_socket_send(socket_ptr[s], buf, len, 0) ? true : false;
+    fnet_ssize_t ret = fnet_socket_send(socket_ptr[s], buf, len, 0);
+    if(ret == -1) return 0;
+    return  ret;
 }
 
 uint16_t EthernetClass::socketSendAvailable(uint8_t s)

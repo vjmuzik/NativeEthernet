@@ -88,8 +88,9 @@ size_t EthernetClient::write(uint8_t b)
 
 size_t EthernetClient::write(const uint8_t *buf, size_t size)
 {
+    size_t ret = Ethernet.socketSend(sockindex, buf, size);
 	if (sockindex >= MAX_SOCK_NUM) return 0;
-	if (Ethernet.socketSend(sockindex, buf, size)) return size;
+	if (ret) return ret;
 	setWriteError();
 	return 0;
 }

@@ -89,7 +89,13 @@ makesocket:
         fnet_socket_setopt(socket_ptr[s], SOL_SOCKET, SO_RCVBUF, &bufsize_option, sizeof(bufsize_option));
         fnet_socket_setopt(socket_ptr[s], SOL_SOCKET, SO_SNDBUF, &bufsize_option, sizeof(bufsize_option));
     if(protocol == SnMR::TCP){
+        const struct fnet_linger    linger_option =
+        {
+            .l_onoff = FNET_TRUE,
+            .l_linger = 4 /*sec*/
+        };
         fnet_socket_setopt(socket_ptr[s], IPPROTO_TCP, TCP_NODELAY, &tcpnodelay_option, sizeof(tcpnodelay_option));
+        fnet_socket_setopt(socket_ptr[s], SOL_SOCKET, SO_LINGER, &linger_option, sizeof(linger_option));
 //        fnet_socket_setopt(socket_ptr[s], IPPROTO_TCP, TCP_MSS, &bufsize_option, sizeof(bufsize_option));
     }
     

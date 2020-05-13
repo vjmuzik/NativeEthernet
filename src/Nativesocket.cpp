@@ -203,9 +203,9 @@ void EthernetClass::socketConnect(uint8_t s, uint8_t * addr, uint16_t port)
     remoteaddr.sin_port = FNET_HTONS(port);
     remoteaddr.sin_addr.s_addr = *(fnet_ip4_addr_t*)addr;
     fnet_return_t ret = fnet_socket_connect(socket_ptr[s], (struct fnet_sockaddr*)&remoteaddr, sizeof(remoteaddr));
-//    int8_t error_handler = fnet_error_get();
 //    if(ret == FNET_ERR){
-//        Serial.print("RecvErr: ");
+//        int8_t error_handler = fnet_error_get();
+//        Serial.print("Connect Err: ");
 //        Serial.send_now();
 //        Serial.println(error_handler);
 //        Serial.send_now();

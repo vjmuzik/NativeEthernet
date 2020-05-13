@@ -61,12 +61,17 @@ int EthernetClient::connect(IPAddress ip, uint16_t port)
 		uint8_t stat = Ethernet.socketStatus(sockindex);
 //        Serial.print("Connect: ");
 //        Serial.println(stat, HEX);
+//        Serial.print("Sock Index: ");
+//        Serial.println(sockindex);
         if (stat == SnSR::ESTABLISHED || stat == SnSR::CLOSE_WAIT) {
             _remoteIP = ip;
             _remotePort = port;
             return 1;
         }
-		if (stat == SnSR::CLOSED) return 0;
+        if (stat == SnSR::CLOSED) {
+            Ethernet.socketClose(sockindex);
+            return 0;
+        }
 		if (millis() - start > _timeout) break;
 		delay(1);
 	}

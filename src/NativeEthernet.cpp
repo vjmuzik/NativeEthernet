@@ -26,23 +26,78 @@
 
 IPAddress EthernetClass::_dnsServerAddress;
 DhcpClass* EthernetClass::_dhcp = NULL;
-DMAMEM uint8_t EthernetClass::stack_heap[64u * 1024u]; //Buffer for stack usage, each service has it's own
+uint8_t* EthernetClass::stack_heap_ptr = NULL;
+size_t EthernetClass::stack_heap_size = 0;
+ssize_t EthernetClass::socket_size = 0;
+uint8_t EthernetClass::socket_num = 0;
 IntervalTimer EthernetClass::_fnet_poll;
 volatile boolean EthernetClass::link_status = 0;
-DMAMEM uint8_t EthernetClass::socket_buf_receive[MAX_SOCK_NUM][FNET_SOCKET_DEFAULT_SIZE];
-DMAMEM uint16_t EthernetClass::socket_buf_index[MAX_SOCK_NUM];
-DMAMEM uint8_t EthernetClass::socket_buf_transmit[MAX_SOCK_NUM][FNET_SOCKET_DEFAULT_SIZE];
-DMAMEM uint16_t EthernetClass::socket_buf_len[MAX_SOCK_NUM];
-DMAMEM uint16_t EthernetClass::socket_port[MAX_SOCK_NUM];
-DMAMEM uint8_t* EthernetClass::socket_addr[MAX_SOCK_NUM];
-volatile fnet_socket_t EthernetClass::socket_ptr[MAX_SOCK_NUM] = {nullptr};
+DMAMEM uint8_t** EthernetClass::socket_buf_receive;
+DMAMEM uint16_t* EthernetClass::socket_buf_index;
+DMAMEM uint8_t** EthernetClass::socket_buf_transmit;
+DMAMEM uint16_t* EthernetClass::socket_buf_len;
+DMAMEM uint16_t* EthernetClass::socket_port;
+DMAMEM uint8_t** EthernetClass::socket_addr;
+fnet_socket_t* EthernetClass::socket_ptr;
+
+void EthernetClass::setStackHeap(uint8_t* _stack_heap_ptr, size_t _stack_heap_size){
+    if(stack_heap_ptr != NULL) return;
+    stack_heap_ptr = _stack_heap_ptr;
+    stack_heap_size = _stack_heap_size;
+}
+
+void EthernetClass::setStackHeap(size_t _stack_heap_size){
+    if(stack_heap_ptr != NULL) return;
+    stack_heap_size = _stack_heap_size;
+}
+
+void EthernetClass::setSocketSize(size_t _socket_size){
+    if(socket_size != 0) return;
+    socket_size = _socket_size;
+}
+
+void EthernetClass::setSocketNum(uint8_t _socket_num){
+    if(socket_num != 0) return;
+    if(socket_num > FNET_CFG_SOCKET_MAX) socket_num = FNET_CFG_SOCKET_MAX;
+    else socket_num = _socket_num;
+}
 
 int EthernetClass::begin(uint8_t *mac, unsigned long timeout, unsigned long responseTimeout)
 {
     unsigned long startMillis = millis();
     if(!fnet_netif_is_initialized(fnet_netif_get_default())){
         struct fnet_init_params     init_params;
-    
+        if(stack_heap_size == 0){
+            stack_heap_size = FNET_STACK_HEAP_DEFAULT_SIZE;
+        }
+        if(stack_heap_ptr == NULL){
+            stack_heap_ptr = new uint8_t[stack_heap_size];
+        }
+        if(socket_size == 0){
+            socket_size = FNET_SOCKET_DEFAULT_SIZE;
+        }
+        if(socket_num == 0){
+            socket_num = MAX_SOCK_NUM;
+        }
+        
+        socket_buf_transmit = new uint8_t*[socket_num];
+        socket_buf_receive = new uint8_t*[socket_num];
+        socket_buf_len = new uint16_t[socket_num];
+        socket_port = new uint16_t[socket_num];
+        socket_addr = new uint8_t*[socket_num];
+        socket_ptr = new fnet_socket_t[socket_num];
+        socket_buf_index = new uint16_t[socket_num];
+        EthernetServer::server_port = new uint16_t[socket_num];
+        
+        for(uint8_t i = 0; i < socket_num; i++){
+            socket_buf_transmit[i] = new uint8_t[socket_size];
+            socket_buf_receive[i] = new uint8_t[socket_size];
+            socket_ptr[i] = nullptr;
+        }
+        
+        init_params.netheap_ptr = stack_heap_ptr;
+        init_params.netheap_size = stack_heap_size;
+        
         static const fnet_mutex_api_t teensy_mutex_api = {
             .mutex_init = teensy_mutex_init,
             .mutex_release = teensy_mutex_release,
@@ -54,8 +109,6 @@ int EthernetClass::begin(uint8_t *mac, unsigned long timeout, unsigned long resp
           .timer_delay = 0,
         };
         /* Input parameters for FNET stack initialization */
-        init_params.netheap_ptr = stack_heap;
-        init_params.netheap_size = sizeof(stack_heap);
         init_params.mutex_api = &teensy_mutex_api;
         init_params.timer_api = &timer_api;
         /* FNET Initialization */
@@ -138,6 +191,36 @@ void EthernetClass::begin(uint8_t *mac, IPAddress ip, IPAddress dns, IPAddress g
 {
     if(!fnet_netif_is_initialized(fnet_netif_get_default())){
         struct fnet_init_params     init_params;
+        if(stack_heap_size == 0){
+            stack_heap_size = FNET_STACK_HEAP_DEFAULT_SIZE;
+        }
+        if(stack_heap_ptr == NULL){
+            stack_heap_ptr = new uint8_t[stack_heap_size];
+        }
+        if(socket_size == 0){
+            socket_size = FNET_SOCKET_DEFAULT_SIZE;
+        }
+        if(socket_num == 0){
+            socket_num = MAX_SOCK_NUM;
+        }
+        
+        socket_buf_transmit = new uint8_t*[socket_num];
+        socket_buf_receive = new uint8_t*[socket_num];
+        socket_buf_len = new uint16_t[socket_num];
+        socket_port = new uint16_t[socket_num];
+        socket_addr = new uint8_t*[socket_num];
+        socket_ptr = new fnet_socket_t[socket_num];
+        socket_buf_index = new uint16_t[socket_num];
+        EthernetServer::server_port = new uint16_t[socket_num];
+        
+        for(uint8_t i = 0; i < socket_num; i++){
+            socket_buf_transmit[i] = new uint8_t[socket_size];
+            socket_buf_receive[i] = new uint8_t[socket_size];
+            socket_ptr[i] = nullptr;
+        }
+        
+        init_params.netheap_ptr = stack_heap_ptr;
+        init_params.netheap_size = stack_heap_size;
     
         static const fnet_mutex_api_t teensy_mutex_api = {
             .mutex_init = teensy_mutex_init,
@@ -150,8 +233,6 @@ void EthernetClass::begin(uint8_t *mac, IPAddress ip, IPAddress dns, IPAddress g
           .timer_delay = 0,
         };
         /* Input parameters for FNET stack initialization */
-        init_params.netheap_ptr = stack_heap;
-        init_params.netheap_size = sizeof(stack_heap);
         init_params.mutex_api = &teensy_mutex_api;
         init_params.timer_api = &timer_api;
         /* FNET Initialization */

@@ -22,13 +22,13 @@
 #include "NativeEthernet.h"
 #include "utility/w5100.h"
 
-uint16_t EthernetServer::server_port[MAX_SOCK_NUM];
+uint16_t* EthernetServer::server_port;
 
 
 void EthernetServer::begin()
 {
 	uint8_t sockindex = Ethernet.socketBegin(SnMR::TCP, _port);
-	if (sockindex < MAX_SOCK_NUM) {
+	if (sockindex < Ethernet.socket_num) {
 		if (Ethernet.socketListen(sockindex)) {
 			server_port[sockindex] = _port;
 		} else {
@@ -40,14 +40,14 @@ void EthernetServer::begin()
 EthernetClient EthernetServer::available()
 {
 	bool listening = false;
-	uint8_t sockindex = MAX_SOCK_NUM;
-	uint8_t maxindex=MAX_SOCK_NUM;
+	uint8_t sockindex = Ethernet.socket_num;
+	uint8_t maxindex=Ethernet.socket_num;
 
 	for (uint8_t i=0; i < maxindex; i++) {
 		if (server_port[i] == _port) {
 			uint8_t stat = Ethernet.socketStatus(i);
 			if (stat == SnSR::ESTABLISHED || stat == SnSR::CLOSE_WAIT) {
-                int ret = fnet_socket_recv(Ethernet.socket_ptr[i], &Ethernet.socket_buf_receive[i], sizeof(Ethernet.socket_buf_receive[i]), MSG_PEEK);
+                int ret = fnet_socket_recv(Ethernet.socket_ptr[i], Ethernet.socket_buf_receive[i], Ethernet.socket_size, MSG_PEEK);
 				if (ret > 0) {
 //                    int8_t error_handler = fnet_error_get();
 //                    if(ret == -1){
@@ -87,13 +87,13 @@ EthernetClient EthernetServer::available()
 EthernetClient EthernetServer::accept()
 {
 	bool listening = false;
-	uint8_t sockindex = MAX_SOCK_NUM;
-	uint8_t maxindex=MAX_SOCK_NUM;
+	uint8_t sockindex = Ethernet.socket_num;
+	uint8_t maxindex=Ethernet.socket_num;
 
 	for (uint8_t i=0; i < maxindex; i++) {
 		if (server_port[i] == _port) {
 			uint8_t stat = Ethernet.socketStatus(i);
-			if (sockindex == MAX_SOCK_NUM &&
+			if (sockindex == Ethernet.socket_num &&
 			  (stat == SnSR::ESTABLISHED || stat == SnSR::CLOSE_WAIT)) {
 				// Return the connected client even if no data received.
 				// Some protocols like FTP expect the server to send the
@@ -113,7 +113,7 @@ EthernetClient EthernetServer::accept()
 
 EthernetServer::operator bool()
 {
-	uint8_t maxindex=MAX_SOCK_NUM;
+	uint8_t maxindex=Ethernet.socket_num;
 	for (uint8_t i=0; i < maxindex; i++) {
 		if (server_port[i] == _port) {
 			if (Ethernet.socketStatus(i) == SnSR::LISTEN) {
@@ -128,7 +128,7 @@ EthernetServer::operator bool()
 void EthernetServer::statusreport()
 {
 	Serial.printf("EthernetServer, port=%d\n", _port);
-	for (uint8_t i=0; i < MAX_SOCK_NUM; i++) {
+	for (uint8_t i=0; i < Ethernet.socket_num; i++) {
 		uint16_t port = server_port[i];
 		uint8_t stat = Ethernet.socketStatus(i);
 		const char *name;
@@ -164,7 +164,7 @@ size_t EthernetServer::write(uint8_t b)
 
 size_t EthernetServer::write(const uint8_t *buffer, size_t size)
 {
-	uint8_t maxindex=MAX_SOCK_NUM;
+	uint8_t maxindex=Ethernet.socket_num;
 	available();
 	for (uint8_t i=0; i < maxindex; i++) {
 		if (server_port[i] == _port) {

@@ -25,14 +25,20 @@
 
 int EthernetClient::connect(const char * host, uint16_t port)
 {
+    static bool first_call = true;
+    if(first_call){
+        sockindex = Ethernet.socket_num;
+        first_call = false;
+    }
+    
 	DNSClient dns; // Look up the host first
 	IPAddress remote_addr;
 
-	if (sockindex < MAX_SOCK_NUM) {
+	if (sockindex < Ethernet.socket_num) {
 		if (Ethernet.socketStatus(sockindex) != SnSR::CLOSED) {
 			Ethernet.socketDisconnect(sockindex); // TODO: should we call stop()?
 		}
-		sockindex = MAX_SOCK_NUM;
+		sockindex = Ethernet.socket_num;
 	}
 	dns.begin(Ethernet.dnsServerIP());
 	if (!dns.getHostByName(host, remote_addr)) return 0; // TODO: use _timeout
@@ -41,11 +47,16 @@ int EthernetClient::connect(const char * host, uint16_t port)
 
 int EthernetClient::connect(IPAddress ip, uint16_t port)
 {
-	if (sockindex < MAX_SOCK_NUM) {
+    static bool first_call = true;
+    if(first_call){
+        sockindex = Ethernet.socket_num;
+        first_call = false;
+    }
+	if (sockindex < Ethernet.socket_num) {
 		if (Ethernet.socketStatus(sockindex) != SnSR::CLOSED) {
 			Ethernet.socketDisconnect(sockindex); // TODO: should we call stop()?
 		}
-		sockindex = MAX_SOCK_NUM;
+		sockindex = Ethernet.socket_num;
 	}
 #if defined(ESP8266) || defined(ESP32)
 	if (ip == IPAddress((uint32_t)0) || ip == IPAddress(0xFFFFFFFFul)) return 0;
@@ -53,7 +64,7 @@ int EthernetClient::connect(IPAddress ip, uint16_t port)
 	if (ip == IPAddress(0ul) || ip == IPAddress(0xFFFFFFFFul)) return 0;
 #endif
 	sockindex = Ethernet.socketBegin(SnMR::TCP, 8888);
-	if (sockindex >= MAX_SOCK_NUM) return 0;
+	if (sockindex >= Ethernet.socket_num) return 0;
 	Ethernet.socketConnect(sockindex, rawIPAddress(ip), port);
     _port = port;
 	uint32_t start = millis();
@@ -76,13 +87,13 @@ int EthernetClient::connect(IPAddress ip, uint16_t port)
 		delay(1);
 	}
 	Ethernet.socketClose(sockindex);
-	sockindex = MAX_SOCK_NUM;
+	sockindex = Ethernet.socket_num;
 	return 0;
 }
 
 int EthernetClient::availableForWrite(void)
 {
-	if (sockindex >= MAX_SOCK_NUM) return 0;
+	if (sockindex >= Ethernet.socket_num) return 0;
 	return Ethernet.socketSendAvailable(sockindex);
 }
 
@@ -94,7 +105,7 @@ size_t EthernetClient::write(uint8_t b)
 size_t EthernetClient::write(const uint8_t *buf, size_t size)
 {
     size_t ret = Ethernet.socketSend(sockindex, buf, size);
-	if (sockindex >= MAX_SOCK_NUM) return 0;
+	if (sockindex >= Ethernet.socket_num) return 0;
 	if (ret) return ret;
 	setWriteError();
 	return 0;
@@ -102,13 +113,13 @@ size_t EthernetClient::write(const uint8_t *buf, size_t size)
 
 int EthernetClient::available()
 {
-	if (sockindex >= MAX_SOCK_NUM) return 0;
+	if (sockindex >= Ethernet.socket_num) return 0;
 	struct fnet_sockaddr _from;
     fnet_size_t fromlen = sizeof(_from);
     
     int ret = 0;
     if(_remaining == 0) {
-        ret = fnet_socket_recvfrom(Ethernet.socket_ptr[sockindex], &Ethernet.socket_buf_receive[sockindex], sizeof(Ethernet.socket_buf_receive[sockindex]), 0, &_from, &fromlen);
+        ret = fnet_socket_recvfrom(Ethernet.socket_ptr[sockindex], Ethernet.socket_buf_receive[sockindex], Ethernet.socket_size, 0, &_from, &fromlen);
         Ethernet.socket_buf_index[sockindex] = 0;
     }
     int8_t error_handler = fnet_error_get();
@@ -144,7 +155,7 @@ int EthernetClient::available()
 
 int EthernetClient::read(uint8_t *buf, size_t size)
 {
-	if (sockindex >= MAX_SOCK_NUM) return 0;
+	if (sockindex >= Ethernet.socket_num) return 0;
     int16_t ret = Ethernet.socketRecv(sockindex, buf, size);
     if(ret > 0) _remaining -= ret;
     return ret;
@@ -152,7 +163,7 @@ int EthernetClient::read(uint8_t *buf, size_t size)
 
 int EthernetClient::peek()
 {
-	if (sockindex >= MAX_SOCK_NUM) return -1;
+	if (sockindex >= Ethernet.socket_num) return -1;
 	if (!available()) return -1;
 	return Ethernet.socketPeek(sockindex);
 }
@@ -170,7 +181,7 @@ int EthernetClient::read()
 
 void EthernetClient::flush()
 {
-	while (sockindex < MAX_SOCK_NUM) {
+	while (sockindex < Ethernet.socket_num) {
 		uint8_t stat = Ethernet.socketStatus(sockindex);
 		if (stat != SnSR::ESTABLISHED && stat != SnSR::CLOSE_WAIT) return;
 		if (Ethernet.socketSendAvailable(sockindex) >= W5100.SSIZE) return;
@@ -179,7 +190,7 @@ void EthernetClient::flush()
 
 void EthernetClient::stop()
 {
-	if (sockindex >= MAX_SOCK_NUM) return;
+	if (sockindex >= Ethernet.socket_num) return;
 
 	// attempt to close the connection gracefully (send a FIN to other side)
 	Ethernet.socketDisconnect(sockindex);
@@ -188,7 +199,7 @@ void EthernetClient::stop()
 	// wait up to a second for the connection to close
 	do {
 		if (Ethernet.socketStatus(sockindex) == SnSR::CLOSED) {
-			sockindex = MAX_SOCK_NUM;
+			sockindex = Ethernet.socket_num;
 			return; // exit the loop
 		}
 		delay(1);
@@ -196,12 +207,12 @@ void EthernetClient::stop()
 
 	// if it hasn't closed, close it forcefully
 	Ethernet.socketClose(sockindex);
-	sockindex = MAX_SOCK_NUM;
+	sockindex = Ethernet.socket_num;
 }
 
 uint8_t EthernetClient::connected()
 {
-	if (sockindex >= MAX_SOCK_NUM) return 0;
+	if (sockindex >= Ethernet.socket_num) return 0;
 
 	uint8_t s = Ethernet.socketStatus(sockindex);
 	return !(s == SnSR::LISTEN || s == SnSR::CLOSED || s == SnSR::FIN_WAIT ||
@@ -210,7 +221,7 @@ uint8_t EthernetClient::connected()
 
 uint8_t EthernetClient::status()
 {
-	if (sockindex >= MAX_SOCK_NUM) return SnSR::CLOSED;
+	if (sockindex >= Ethernet.socket_num) return SnSR::CLOSED;
 	return Ethernet.socketStatus(sockindex);
 }
 
@@ -219,7 +230,7 @@ uint8_t EthernetClient::status()
 bool EthernetClient::operator==(const EthernetClient& rhs)
 {
 	if (sockindex != rhs.sockindex) return false;
-	if (sockindex >= MAX_SOCK_NUM) return false;
-	if (rhs.sockindex >= MAX_SOCK_NUM) return false;
+	if (sockindex >= Ethernet.socket_num) return false;
+	if (rhs.sockindex >= Ethernet.socket_num) return false;
 	return true;
 }

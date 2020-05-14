@@ -47,7 +47,7 @@ void EthernetClass::socketPortRand(uint16_t n)
 
 uint8_t EthernetClass::socketBegin(uint8_t protocol, uint16_t port)
 {
-        uint8_t s, maxindex = MAX_SOCK_NUM;
+        uint8_t s, maxindex = socket_num;
             // look at all the hardware sockets, use any that are closed (unused)
             for (s=0; s < maxindex; s++) {
                 if(socket_ptr[s] == nullptr){
@@ -55,12 +55,12 @@ uint8_t EthernetClass::socketBegin(uint8_t protocol, uint16_t port)
                     goto makesocket;
                 }
             }
-        return MAX_SOCK_NUM;
+        return socket_num;
     
 makesocket:
     struct fnet_sockaddr_in local_addr;
     
-    const fnet_uint32_t bufsize_option = FNET_SOCKET_DEFAULT_SIZE;
+    const fnet_uint32_t bufsize_option = socket_size;
     const fnet_int32_t      tcpnodelay_option = 1;
        if(protocol == SnMR::UDP){
            socket_ptr[s] = fnet_socket(AF_INET, SOCK_DGRAM, 0);
@@ -70,13 +70,13 @@ makesocket:
        }
        else{
 //           Serial.println("Invalid Protocol!");
-           return MAX_SOCK_NUM;
+           return socket_num;
        }
 
     // create listen socket
     if (socket_ptr[s] == FNET_NULL) {
 //        Serial.println("UDP/IP: Socket creation error.");
-        return MAX_SOCK_NUM;
+        return socket_num;
     }
 
     fnet_memset(&local_addr, 0, sizeof(local_addr));
@@ -103,7 +103,7 @@ makesocket:
         if (FNET_ERR == fnet_socket_bind(socket_ptr[s], (struct fnet_sockaddr*)(&local_addr), sizeof(local_addr))) {
     //        Serial.println("UDP/IP: Socket bind error.");
             fnet_socket_close(socket_ptr[s]);
-            return MAX_SOCK_NUM;
+            return socket_num;
         }
     
     EthernetServer::server_port[s] = 0;
@@ -114,7 +114,7 @@ makesocket:
 uint8_t EthernetClass::socketBeginMulticast(uint8_t protocol, IPAddress ip, uint16_t port)
 {
     uint8_t s = socketBegin(SnMR::UDP, port);
-    if(s == MAX_SOCK_NUM) return MAX_SOCK_NUM;
+    if(s == socket_num) return socket_num;
     
     struct fnet_ip_mreq mreq; /* Multicast group information.*/
 
@@ -202,7 +202,8 @@ void EthernetClass::socketConnect(uint8_t s, uint8_t * addr, uint16_t port)
     remoteaddr.sin_family = AF_INET;
     remoteaddr.sin_port = FNET_HTONS(port);
     remoteaddr.sin_addr.s_addr = *(fnet_ip4_addr_t*)addr;
-    fnet_return_t ret = fnet_socket_connect(socket_ptr[s], (struct fnet_sockaddr*)&remoteaddr, sizeof(remoteaddr));
+    fnet_socket_connect(socket_ptr[s], (struct fnet_sockaddr*)&remoteaddr, sizeof(remoteaddr));
+//    fnet_return_t ret = fnet_socket_connect(socket_ptr[s], (struct fnet_sockaddr*)&remoteaddr, sizeof(remoteaddr));
 //    if(ret == FNET_ERR){
 //        int8_t error_handler = fnet_error_get();
 //        Serial.print("Connect Err: ");
@@ -231,14 +232,14 @@ void EthernetClass::socketDisconnect(uint8_t s)
 //
 int EthernetClass::socketRecv(uint8_t s, uint8_t *buf, int16_t len)
 {
-    if(socket_buf_index[s] == FNET_SOCKET_DEFAULT_SIZE) return -1;
-    if(socket_buf_index[s] + len < FNET_SOCKET_DEFAULT_SIZE){
+    if(socket_buf_index[s] == socket_size) return -1;
+    if(socket_buf_index[s] + len < socket_size){
         if(buf != NULL) fnet_memcpy(buf, socket_buf_receive[s] + socket_buf_index[s], len);
         socket_buf_index[s] += len;
         return len;
     }
-    else if(socket_buf_index[s] + len >= FNET_SOCKET_DEFAULT_SIZE){
-        uint16_t truncate = FNET_SOCKET_DEFAULT_SIZE - socket_buf_index[s];
+    else if(socket_buf_index[s] + len >= socket_size){
+        uint16_t truncate = socket_size - socket_buf_index[s];
         if(buf != NULL) fnet_memcpy(buf, socket_buf_receive[s] + socket_buf_index[s], truncate);
         socket_buf_index[s] += truncate;
         return truncate;
@@ -248,7 +249,17 @@ int EthernetClass::socketRecv(uint8_t s, uint8_t *buf, int16_t len)
 
 uint16_t EthernetClass::socketRecvAvailable(uint8_t s)
 {
-    int ret = fnet_socket_recv(Ethernet.socket_ptr[s], &socket_buf_receive[s], sizeof(socket_buf_receive[s]), MSG_PEEK);
+    int ret = fnet_socket_recv(Ethernet.socket_ptr[s], socket_buf_receive[s], Ethernet.socket_size, MSG_PEEK);
+    if(ret == -1){
+//        int8_t error_handler = fnet_error_get();
+//            Serial.print("RemainingErr: ");
+//            Serial.send_now();
+//            Serial.println(error_handler);
+//        Serial.print("Socket Index: ");
+//        Serial.println(s);
+//            Serial.send_now();
+        return 0;
+    }
     
     return ret;
 }

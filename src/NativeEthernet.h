@@ -39,6 +39,7 @@
 #define MAX_SOCK_NUM 8
 #endif
 #define FNET_SOCKET_DEFAULT_SIZE 1024 * 2
+#define FNET_STACK_HEAP_DEFAULT_SIZE 64u * 1024u //64k
 #define FNET_POLL_TIME 1000 //Time in microseconds
 
 // By default, each socket uses 2K buffers inside the Wiznet chip.  If
@@ -78,21 +79,28 @@ class EthernetClass {
 private:
 	static IPAddress _dnsServerAddress;
 	static DhcpClass* _dhcp;
-    static DMAMEM uint8_t stack_heap[64u * 1024u]; //Buffer for stack usage, each service has it's own
-    static DMAMEM uint8_t socket_buf_transmit[MAX_SOCK_NUM][FNET_SOCKET_DEFAULT_SIZE];
-    static DMAMEM uint16_t socket_buf_len[MAX_SOCK_NUM];
-    static DMAMEM uint16_t socket_port[MAX_SOCK_NUM];
-    static DMAMEM uint8_t* socket_addr[MAX_SOCK_NUM];
+    static DMAMEM uint8_t** socket_buf_transmit;
+    static DMAMEM uint16_t* socket_buf_len;
+    static DMAMEM uint16_t* socket_port;
+    static DMAMEM uint8_t** socket_addr;
     static IntervalTimer _fnet_poll;
     static volatile boolean link_status;
+    static uint8_t* stack_heap_ptr;
+    static size_t stack_heap_size;
+    static ssize_t socket_size;
+    static uint8_t socket_num;
     
 public:
-    static volatile fnet_socket_t socket_ptr[MAX_SOCK_NUM];
-    static DMAMEM uint8_t socket_buf_receive[MAX_SOCK_NUM][FNET_SOCKET_DEFAULT_SIZE];
-    static DMAMEM uint16_t socket_buf_index[MAX_SOCK_NUM];
+    static fnet_socket_t* socket_ptr;
+    static DMAMEM uint8_t** socket_buf_receive;
+    static DMAMEM uint16_t* socket_buf_index;
 	// Initialise the Ethernet shield to use the provided MAC address and
 	// gain the rest of the configuration through DHCP.
 	// Returns 0 if the DHCP configuration failed, and 1 if it succeeded
+    static void setStackHeap(uint8_t* stack_heap_ptr, size_t stack_heap_size); //Appoint your own buffer
+    static void setStackHeap(size_t stack_heap_size); //Change allocated stack heap size
+    static void setSocketSize(size_t _socket_size); //Change allocated socket size
+    static void setSocketNum(uint8_t _socket_num); //Change allocated socket num
 	static int begin(uint8_t *mac, unsigned long timeout = 60000, unsigned long responseTimeout = 4000);
 	static int maintain();
 	static EthernetLinkStatus linkStatus();
@@ -252,7 +260,7 @@ public:
 	virtual void flush();
 	virtual void stop();
 	virtual uint8_t connected();
-	virtual operator bool() { return sockindex < MAX_SOCK_NUM; }
+	virtual operator bool() { return sockindex < Ethernet.socket_num; }
 	virtual bool operator==(const bool value) { return bool() == value; }
 	virtual bool operator!=(const bool value) { return bool() != value; }
 	virtual bool operator==(const EthernetClient&);
@@ -294,7 +302,7 @@ public:
 	//void statusreport();
 
 	// TODO: make private when socket allocation moves to EthernetClass
-	static uint16_t server_port[MAX_SOCK_NUM];
+	static uint16_t* server_port;
 };
 
 

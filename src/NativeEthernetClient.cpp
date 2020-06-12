@@ -155,9 +155,10 @@ int EthernetClient::available()
 
 int EthernetClient::read(uint8_t *buf, size_t size)
 {
+    if(_remaining > 0) if (size > (size_t)_remaining) size = _remaining;
 	if (sockindex >= Ethernet.socket_num) return 0;
     int16_t ret = Ethernet.socketRecv(sockindex, buf, size);
-    if(ret > 0) _remaining -= ret;
+    if (ret > 0) _remaining -= ret;
     return ret;
 }
 

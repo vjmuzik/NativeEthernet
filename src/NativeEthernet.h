@@ -89,7 +89,6 @@ private:
     static size_t stack_heap_size;
     static ssize_t socket_size;
     static uint8_t socket_num;
-    
 public:
     static fnet_socket_t* socket_ptr;
     static DMAMEM uint8_t** socket_buf_receive;
@@ -283,13 +282,14 @@ private:
     uint16_t _port; // local port to listen on
     IPAddress _remoteIP; // remote IP address for the incoming packet whilst it's being processed
     uint16_t _remotePort; // remote port for the incoming packet whilst it's being processed
-    uint16_t _remaining;
+    int32_t _remaining;
 };
 
 
 class EthernetServer : public Server {
 private:
-	uint16_t _port;
+    static void poll(void* cookie);
+	
 public:
 	EthernetServer(uint16_t port) : _port(port) { }
 	EthernetClient available();
@@ -303,6 +303,8 @@ public:
 
 	// TODO: make private when socket allocation moves to EthernetClass
 	static uint16_t* server_port;
+    uint16_t _port;
+    fnet_service_desc_t service_descriptor;
 };
 
 

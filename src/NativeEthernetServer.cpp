@@ -31,6 +31,10 @@ void EthernetServer::begin()
 	if (sockindex < Ethernet.socket_num) {
 		if (Ethernet.socketListen(sockindex)) {
 			server_port[sockindex] = _port;
+            service_descriptor = fnet_service_register(poll, this);
+            if(service_descriptor == 0){
+                Ethernet.socketDisconnect(sockindex);
+            }
 		} else {
 			Ethernet.socketDisconnect(sockindex);
 		}
@@ -67,13 +71,6 @@ EthernetClient EthernetServer::available()
 					}
 				}
 			} else if (stat == SnSR::LISTEN) {
-                struct fnet_sockaddr from;
-                fnet_size_t fromlen;
-                fnet_socket_t tmp = fnet_socket_accept(Ethernet.socket_ptr[i], &from, &fromlen);
-                if(tmp){
-                    fnet_socket_close(Ethernet.socket_ptr[i]);
-                    Ethernet.socket_ptr[i] = tmp;
-                }
 				listening = true;
 			} else if (stat == SnSR::CLOSED) {
 				server_port[i] = 0;
@@ -175,3 +172,25 @@ size_t EthernetServer::write(const uint8_t *buffer, size_t size)
 	}
 	return size;
 }
+
+void EthernetServer::poll(void* cookie){
+    EthernetServer* server = (EthernetServer*) cookie;
+    uint8_t maxindex = Ethernet.socket_num;
+
+    for (uint8_t i=0; i < maxindex; i++) {
+        if (server->server_port[i] == server->_port) {
+            uint8_t stat = Ethernet.socketStatus(i);
+            if (stat == SnSR::LISTEN) {
+                struct fnet_sockaddr from;
+                fnet_size_t fromlen;
+                fnet_socket_t tmp = fnet_socket_accept(Ethernet.socket_ptr[i], &from, &fromlen);
+                if(tmp){
+                    fnet_socket_close(Ethernet.socket_ptr[i]);
+                    Ethernet.socket_ptr[i] = tmp;
+                    fnet_service_unregister(server->service_descriptor);
+                }
+            }
+        }
+    }
+}
+

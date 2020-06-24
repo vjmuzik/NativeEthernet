@@ -21,7 +21,7 @@
 #include <Arduino.h>
 #include "NativeEthernet.h"
 #include "NativeDns.h"
-#include "utility/w5100.h"
+#include "utility/NativeW5100.h"
 
 int EthernetClient::connect(const char * host, uint16_t port)
 {
@@ -185,7 +185,7 @@ void EthernetClient::flush()
 	while (sockindex < Ethernet.socket_num) {
 		uint8_t stat = Ethernet.socketStatus(sockindex);
 		if (stat != SnSR::ESTABLISHED && stat != SnSR::CLOSE_WAIT) return;
-		if (Ethernet.socketSendAvailable(sockindex) >= W5100.SSIZE) return;
+		if (Ethernet.socketSendAvailable(sockindex) >= Ethernet.socket_size) return;
 	}
 }
 

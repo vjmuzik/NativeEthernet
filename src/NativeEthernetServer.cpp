@@ -20,7 +20,7 @@
 
 #include <Arduino.h>
 #include "NativeEthernet.h"
-#include "utility/w5100.h"
+#include "utility/NativeW5100.h"
 
 uint16_t* EthernetServer::server_port;
 

@@ -29,12 +29,11 @@ public:
 	int getHostByName(const char* aHostname, IPAddress& aResult, uint16_t timeout=5000);
 
 protected:
-	uint16_t BuildRequest(const char* aName);
-	uint16_t ProcessResponse(uint16_t aTimeout, IPAddress& aAddress);
+    static void fnet_dns_callback(const fnet_dns_resolved_addr_t* addr_list, long unsigned int addr_list_size, void* cookie);
 
 	IPAddress iDNSServer;
-	uint16_t iRequestId;
-	EthernetUDP iUdp;
+    volatile fnet_ssize_t resolveDone;
+    IPAddress resolvedIP;
 };
 
 #endif

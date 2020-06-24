@@ -73,12 +73,10 @@ enum EthernetHardwareStatus {
 class EthernetUDP;
 class EthernetClient;
 class EthernetServer;
-class DhcpClass;
 
 class EthernetClass {
 private:
 	static IPAddress _dnsServerAddress;
-	static DhcpClass* _dhcp;
     static DMAMEM uint8_t** socket_buf_transmit;
     static DMAMEM uint16_t* socket_buf_len;
     static DMAMEM uint16_t* socket_port;
@@ -116,6 +114,7 @@ public:
 	static IPAddress localIP();
 	static IPAddress subnetMask();
 	static IPAddress gatewayIP();
+    static IPAddress dhcpServerIP();
 	static IPAddress dnsServerIP() { return fnet_netif_get_ip4_dns(fnet_netif_get_default()); }
 
 	void setMACAddress(const uint8_t *mac_address);
@@ -307,52 +306,6 @@ public:
     fnet_service_desc_t service_descriptor;
 };
 
-
-class DhcpClass {
-private:
-	uint32_t _dhcpInitialTransactionId;
-	uint32_t _dhcpTransactionId;
-	uint8_t  _dhcpMacAddr[6];
-#ifdef __arm__
-	uint8_t  _dhcpLocalIp[4] __attribute__((aligned(4)));
-	uint8_t  _dhcpSubnetMask[4] __attribute__((aligned(4)));
-	uint8_t  _dhcpGatewayIp[4] __attribute__((aligned(4)));
-	uint8_t  _dhcpDhcpServerIp[4] __attribute__((aligned(4)));
-	uint8_t  _dhcpDnsServerIp[4] __attribute__((aligned(4)));
-#else
-	uint8_t  _dhcpLocalIp[4];
-	uint8_t  _dhcpSubnetMask[4];
-	uint8_t  _dhcpGatewayIp[4];
-	uint8_t  _dhcpDhcpServerIp[4];
-	uint8_t  _dhcpDnsServerIp[4];
-#endif
-	uint32_t _dhcpLeaseTime;
-	uint32_t _dhcpT1, _dhcpT2;
-	uint32_t _renewInSec;
-	uint32_t _rebindInSec;
-	unsigned long _timeout;
-	unsigned long _responseTimeout;
-	unsigned long _lastCheckLeaseMillis;
-	uint8_t _dhcp_state;
-	EthernetUDP _dhcpUdpSocket;
-
-	int request_DHCP_lease();
-	void reset_DHCP_lease();
-	void presend_DHCP();
-	void send_DHCP_MESSAGE(uint8_t, uint16_t);
-	void printByte(char *, uint8_t);
-
-	uint8_t parseDHCPResponse(unsigned long responseTimeout, uint32_t& transactionId);
-public:
-	IPAddress getLocalIp();
-	IPAddress getSubnetMask();
-	IPAddress getGatewayIp();
-	IPAddress getDhcpServerIp();
-	IPAddress getDnsServerIp();
-
-	int beginWithDHCP(uint8_t *, unsigned long timeout = 60000, unsigned long responseTimeout = 4000);
-	int checkLease();
-};
 
 
 

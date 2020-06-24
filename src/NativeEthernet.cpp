@@ -21,11 +21,9 @@
 #include <Arduino.h>
 #include <fnet.h>
 #include "NativeEthernet.h"
-#include "utility/w5100.h"
-#include "NativeDhcp.h"
+#include "utility/NativeW5100.h"
 
 IPAddress EthernetClass::_dnsServerAddress;
-DhcpClass* EthernetClass::_dhcp = NULL;
 uint8_t* EthernetClass::stack_heap_ptr = NULL;
 size_t EthernetClass::stack_heap_size = 0;
 ssize_t EthernetClass::socket_size = 0;
@@ -324,6 +322,14 @@ IPAddress EthernetClass::subnetMask()
 IPAddress EthernetClass::gatewayIP()
 {
 	return IPAddress(fnet_netif_get_ip4_gateway(fnet_netif_get_default()));
+}
+
+IPAddress EthernetClass::dhcpServerIP()
+{
+    struct fnet_dhcp_cln_options current_options;
+    fnet_dhcp_cln_get_options(fnet_dhcp_cln_get_by_netif(fnet_netif_get_default()), &current_options);
+    
+    return IPAddress(current_options.dhcp_server.s_addr);
 }
 
 void EthernetClass::setMACAddress(const uint8_t *mac_address)

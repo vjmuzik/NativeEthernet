@@ -10,6 +10,8 @@ Ethernet	KEYWORD1	Ethernet
 EthernetClient	KEYWORD1	EthernetClient
 EthernetServer	KEYWORD1	EthernetServer
 IPAddress	KEYWORD1	EthernetIPAddress
+EthernetMDNS	KEYWORD1
+MDNS	KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)
@@ -51,6 +53,12 @@ setDnsServerIP	KEYWORD2
 setRetransmissionTimeout	KEYWORD2
 setRetransmissionCount	KEYWORD2
 setConnectionTimeout	KEYWORD2
+addService	KEYWORD2
+removeService	KEYWORD2
+setServiceName	KEYWORD2
+setStackHeap	KEYWORD2
+setSocketSize	KEYWORD2
+setSocketNum	KEYWORD2
 
 #######################################
 # Constants (LITERAL1)

@@ -307,7 +307,26 @@ public:
 };
 
 
+class EthernetMDNS{
+public:
+    void begin(const char* host_name, uint8_t num_services = 1);
+    void addService(const char* service_type, uint16_t service_port, const fnet_mdns_txt_key_t* (*service_get_txt)(void) = EmptyTXTRecord);
+    void removeService(const char* service_type);
+    void setServiceName(const char* service_name);
+protected:
+private:
+    fnet_mdns_desc_t mdns_desc;
+    fnet_mdns_service_desc_t *service_desc;
+    uint8_t num_service_desc;
+    static const fnet_mdns_txt_key_t* EmptyTXTRecord(){
+        static const fnet_mdns_txt_key_t NullTXTRecord[] = {
+            {0,0}
+        };
+        return NullTXTRecord;
+    }
+};
 
+extern EthernetMDNS MDNS;
 
 
 

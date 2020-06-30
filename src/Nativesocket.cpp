@@ -173,6 +173,11 @@ uint8_t EthernetClass::socketStatus(uint8_t s)
 //
 void EthernetClass::socketClose(uint8_t s)
 {
+#if FNET_CFG_TLS
+    if(EthernetServer::_tls[s]){
+        fnet_tls_socket_close(EthernetServer::tls_socket_ptr[s]);
+    }
+#endif
     fnet_socket_close(socket_ptr[s]);
     socket_ptr[s] = nullptr;
 }
@@ -283,7 +288,17 @@ uint8_t EthernetClass::socketPeek(uint8_t s)
  */
 uint16_t EthernetClass::socketSend(uint8_t s, const uint8_t * buf, uint16_t len)
 {
-    fnet_ssize_t ret = fnet_socket_send(socket_ptr[s], buf, len, 0);
+    fnet_ssize_t ret = -1;
+#if FNET_CFG_TLS
+    if(EthernetServer::_tls[s]){
+        ret = fnet_tls_socket_send(EthernetServer::tls_socket_ptr[s], buf, len);
+    }
+    else{
+        ret = fnet_socket_send(socket_ptr[s], buf, len, 0);
+    }
+#else
+    ret = fnet_socket_send(socket_ptr[s], buf, len, 0);
+#endif
     if(ret == -1) return 0;
     return  ret;
 }

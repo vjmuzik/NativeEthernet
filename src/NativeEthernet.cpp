@@ -86,6 +86,10 @@ int EthernetClass::begin(uint8_t *mac, unsigned long timeout, unsigned long resp
         socket_ptr = new fnet_socket_t[socket_num];
         socket_buf_index = new uint16_t[socket_num];
         EthernetServer::server_port = new uint16_t[socket_num];
+#if FNET_CFG_TLS
+        EthernetServer::tls_socket_ptr = new fnet_tls_socket_t[socket_num];
+        EthernetServer::_tls = new bool[socket_num];
+#endif
         
         for(uint8_t i = 0; i < socket_num; i++){
             socket_buf_transmit[i] = new uint8_t[socket_size];
@@ -210,6 +214,10 @@ void EthernetClass::begin(uint8_t *mac, IPAddress ip, IPAddress dns, IPAddress g
         socket_ptr = new fnet_socket_t[socket_num];
         socket_buf_index = new uint16_t[socket_num];
         EthernetServer::server_port = new uint16_t[socket_num];
+#if FNET_CFG_TLS
+        EthernetServer::tls_socket_ptr = new fnet_tls_socket_t[socket_num];
+        EthernetServer::_tls = new bool[socket_num];
+#endif
         
         for(uint8_t i = 0; i < socket_num; i++){
             socket_buf_transmit[i] = new uint8_t[socket_size];

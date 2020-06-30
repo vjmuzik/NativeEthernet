@@ -7,17 +7,21 @@ void teensyMAC(uint8_t *mac) {
     Serial.printf("MAC: %02x:%02x:%02x:%02x:%02x:%02x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 }
 
-EthernetServer server(80);
+EthernetServer server(443, true); //Uncomment for TLS
+//EthernetServer server(80);
 
-void setup() {
+void setup() {;
   // put your setup code here, to run once:
   teensyMAC(mac);
   Ethernet.begin(mac);
+  MDNS.begin("Teensy41", 2); //.local Domain name and number of services
+//  MDNS.setServiceName("Teensy41_Service_Name"); //Uncomment to change service name
+  MDNS.addService("_https._tcp", 443); //Uncomment for TLS
+//  MDNS.addService("_http._tcp", 80);
   server.begin();
-  MDNS.begin("Teensy41");
-  MDNS.addService("_http._tcp", 80);
-  Serial.print("IP  address:");
+  Serial.print("IP  address: ");
   Serial.println(Ethernet.localIP());
+  Serial.send_now();
 }
 
 void loop() {

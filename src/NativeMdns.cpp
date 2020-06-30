@@ -74,7 +74,7 @@ void EthernetMDNS::removeService(const char* service_type){
 void EthernetMDNS::setServiceName(const char* service_name){
     fnet_mdns_service_t mdns_service;
     mdns_service.name = (char*)service_name;
-    fnet_mdns_service_update_name(mdns_desc, &mdns_service);
+    fnet_mdns_service_update_name(mdns_desc, (const fnet_mdns_service_t*)&mdns_service);
 }
 
 EthernetMDNS MDNS;

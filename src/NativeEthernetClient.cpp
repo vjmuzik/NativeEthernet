@@ -119,8 +119,20 @@ int EthernetClient::available()
     
     int ret = 0;
     if(_remaining == 0) {
+#if FNET_CFG_TLS
+        if(EthernetServer::_tls[sockindex]){
+            fnet_socket_recvfrom(Ethernet.socket_ptr[sockindex], Ethernet.socket_buf_receive[sockindex], Ethernet.socket_size, MSG_PEEK, &_from, &fromlen);
+            ret = fnet_tls_socket_recv(EthernetServer::tls_socket_ptr[sockindex], Ethernet.socket_buf_receive[sockindex], Ethernet.socket_size);
+            Ethernet.socket_buf_index[sockindex] = 0;
+        }
+        else{
+            ret = fnet_socket_recvfrom(Ethernet.socket_ptr[sockindex], Ethernet.socket_buf_receive[sockindex], Ethernet.socket_size, 0, &_from, &fromlen);
+            Ethernet.socket_buf_index[sockindex] = 0;
+        }
+#else
         ret = fnet_socket_recvfrom(Ethernet.socket_ptr[sockindex], Ethernet.socket_buf_receive[sockindex], Ethernet.socket_size, 0, &_from, &fromlen);
         Ethernet.socket_buf_index[sockindex] = 0;
+#endif
     }
     int8_t error_handler = fnet_error_get();
     if(error_handler == -20){

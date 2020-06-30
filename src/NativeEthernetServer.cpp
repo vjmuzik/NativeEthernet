@@ -23,6 +23,10 @@
 #include "utility/NativeW5100.h"
 
 uint16_t* EthernetServer::server_port;
+#if FNET_CFG_TLS
+fnet_tls_socket_t* EthernetServer::tls_socket_ptr;
+bool* EthernetServer::_tls;
+#endif
 
 
 void EthernetServer::begin()
@@ -32,6 +36,34 @@ void EthernetServer::begin()
 		if (Ethernet.socketListen(sockindex)) {
 			server_port[sockindex] = _port;
             service_descriptor = fnet_service_register(poll, this);
+#if FNET_CFG_TLS
+            if(_tls_en && tls_desc != 0){
+                _tls[sockindex] = true;
+            }
+            else if(_tls_en){
+                tls_desc = fnet_tls_init(FNET_TLS_ROLE_SERVER);
+                if(tls_desc == 0){
+                    Serial.println("Failed to initialize TLS");
+                    _tls[sockindex] = false;
+                    _tls_en = false;
+                }
+                else{
+                    if(fnet_tls_set_own_certificate(tls_desc, certificate_buffer, certificate_buffer_size, private_key_buffer, private_key_buffer_size) == FNET_ERR)
+                    {
+                        Serial.println("TLS certificate error.");
+                        fnet_tls_release(tls_desc);
+                        _tls[sockindex] = false;
+                        _tls_en = false;
+                    }
+                    else{
+                        _tls[sockindex] = true;
+                    }
+                }
+            }
+            else{
+                _tls[sockindex] = false;
+            }
+#endif
             if(service_descriptor == 0){
                 Ethernet.socketDisconnect(sockindex);
             }
@@ -185,6 +217,18 @@ void EthernetServer::poll(void* cookie){
                 fnet_size_t fromlen;
                 fnet_socket_t tmp = fnet_socket_accept(Ethernet.socket_ptr[i], &from, &fromlen);
                 if(tmp){
+#if FNET_CFG_TLS
+                    if(server->_tls[i]){
+                        fnet_tls_socket_t tls_socket = fnet_tls_socket(server->tls_desc, tmp);
+                        if(tls_socket == FNET_NULL){
+                            Serial.println("Failed to create TLS socket");
+                            server->_tls[i] = false;
+                        }
+                        else{
+                            server->tls_socket_ptr[i] = tls_socket;
+                        }
+                    }
+#endif
                     fnet_socket_close(Ethernet.socket_ptr[i]);
                     Ethernet.socket_ptr[i] = tmp;
                     fnet_service_unregister(server->service_descriptor);

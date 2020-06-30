@@ -290,7 +290,12 @@ private:
     static void poll(void* cookie);
 	
 public:
-	EthernetServer(uint16_t port) : _port(port) { }
+#if FNET_CFG_TLS
+	EthernetServer(uint16_t port) : _port(port), _tls_en(false) { }
+	EthernetServer(uint16_t port, bool tls_en) : _port(port), _tls_en(tls_en) { }
+#else
+    EthernetServer(uint16_t port) : _port(port) { }
+#endif
 	EthernetClient available();
 	EthernetClient accept();
 	virtual void begin();
@@ -304,6 +309,17 @@ public:
 	static uint16_t* server_port;
     uint16_t _port;
     fnet_service_desc_t service_descriptor;
+    
+#if FNET_CFG_TLS
+    static bool* _tls;
+    fnet_tls_desc_t tls_desc = 0;
+    bool _tls_en;
+    static fnet_tls_socket_t* tls_socket_ptr;
+    fnet_uint8_t* certificate_buffer = (fnet_uint8_t*)mbedtls_test_srv_crt; /* Certificate data. */
+    fnet_size_t certificate_buffer_size = mbedtls_test_srv_crt_len;              /* Size of the certificate buffer. */
+    fnet_uint8_t* private_key_buffer = (fnet_uint8_t*)mbedtls_test_srv_key; /* Private key. */
+    fnet_size_t private_key_buffer_size = mbedtls_test_srv_key_len;             /* Size of the private key buffer. */
+#endif
 };
 
 

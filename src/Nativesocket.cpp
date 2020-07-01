@@ -150,7 +150,13 @@ uint8_t EthernetClass::socketStatus(uint8_t s)
     }
     fnet_socket_state_t state;
     fnet_size_t state_size = sizeof(state);
-    fnet_socket_getopt(socket_ptr[s], SOL_SOCKET, SO_STATE, &state, &state_size);
+    if(fnet_socket_getopt(socket_ptr[s], SOL_SOCKET, SO_STATE, &state, &state_size) == FNET_ERR){
+//        int8_t error_handler = fnet_error_get();
+//        Serial.print("StateErr: ");
+//        Serial.send_now();
+//        Serial.println(error_handler);
+//        Serial.send_now();
+    }
     switch (state) {
         case SS_CLOSED:
             return SnSR::CLOSED;
@@ -177,8 +183,12 @@ void EthernetClass::socketClose(uint8_t s)
     if(EthernetServer::_tls[s]){
         fnet_tls_socket_close(EthernetServer::tls_socket_ptr[s]);
     }
+    EthernetServer::_tls[s] = false;
 #endif
     fnet_socket_close(socket_ptr[s]);
+    while(Ethernet.socketStatus(s) != 1){
+        
+    }
     socket_ptr[s] = nullptr;
 }
 
@@ -224,7 +234,14 @@ void EthernetClass::socketConnect(uint8_t s, uint8_t * addr, uint16_t port)
 //
 void EthernetClass::socketDisconnect(uint8_t s)
 {
-    socketClose(s);
+//    socketClose(s);
+    if(fnet_socket_shutdown(socket_ptr[s], SD_WRITE) == FNET_ERR){
+//        Serial.println("Socket Shutdown Error");
+//        int8_t error_handler = fnet_error_get();
+//        Serial.print("RemainingErr: ");
+//        Serial.println(error_handler);
+//        Serial.send_now();
+    };
 }
 
 
@@ -299,22 +316,29 @@ uint16_t EthernetClass::socketSend(uint8_t s, const uint8_t * buf, uint16_t len)
 #else
     ret = fnet_socket_send(socket_ptr[s], buf, len, 0);
 #endif
-    if(ret == -1) return 0;
+    if(ret == -1) {
+                int8_t error_handler = fnet_error_get();
+                    Serial.print("SendErr: ");
+                    Serial.send_now();
+                    Serial.println(error_handler);
+        return 0;
+    }
     return  ret;
 }
 
 uint16_t EthernetClass::socketSendAvailable(uint8_t s)
 {
-    uint16_t _max, _pending;
+    fnet_ssize_t _max, _pending;
     fnet_size_t _max_size, _pending_size;
     _pending_size = sizeof(_pending);
+    _max_size = sizeof(_max_size);
     if(fnet_socket_getopt(socket_ptr[s], SOL_SOCKET, SO_SNDNUM, &_pending, &_pending_size) == FNET_ERR){
         return 0;
     }
     if(fnet_socket_getopt(socket_ptr[s], SOL_SOCKET, SO_SNDBUF, &_max, &_max_size) == FNET_ERR){
         return 0;
     }
-    return _max - _pending;
+    return (uint16_t)(_max - _pending);
 }
 
 uint16_t EthernetClass::socketBufferData(uint8_t s, uint16_t offset, const uint8_t* buf, uint16_t len)

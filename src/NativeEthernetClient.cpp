@@ -42,6 +42,7 @@ int EthernetClient::connect(const char * host, uint16_t port)
 	}
 	dns.begin(Ethernet.dnsServerIP());
 	if (!dns.getHostByName(host, remote_addr)) return 0; // TODO: use _timeout
+    host_name = host;
 	return connect(remote_addr, port);
 }
 
@@ -63,7 +64,10 @@ int EthernetClient::connect(IPAddress ip, uint16_t port)
 #else
 	if (ip == IPAddress(0ul) || ip == IPAddress(0xFFFFFFFFul)) return 0;
 #endif
-	sockindex = Ethernet.socketBegin(SnMR::TCP, 8888);
+//    Using a port number of 0 causes the service provider to
+//    assign a unique ephemeral port number to the socket with
+//    a value between 49152 to 65535 (sugested by IANA)
+	sockindex = Ethernet.socketBegin(SnMR::TCP, 0);
 	if (sockindex >= Ethernet.socket_num) return 0;
 	Ethernet.socketConnect(sockindex, rawIPAddress(ip), port);
     _port = port;
@@ -77,6 +81,31 @@ int EthernetClient::connect(IPAddress ip, uint16_t port)
         if (stat == SnSR::ESTABLISHED || stat == SnSR::CLOSE_WAIT) {
             _remoteIP = ip;
             _remotePort = port;
+#if FNET_CFG_TLS
+            if(_tls_en && tls_desc != 0){
+//                Serial.println("TLS socket create");
+                fnet_tls_socket_t tls_socket = fnet_tls_socket(tls_desc, Ethernet.socket_ptr[sockindex]);
+                if(tls_socket == FNET_NULL){
+                    Serial.println("Failed to create TLS client socket");
+                    EthernetServer::_tls[sockindex] = false;
+                }
+                else{
+//                    Serial.println("TLS socket made");
+                    EthernetServer::_tls[sockindex] = true;
+                    EthernetServer::tls_socket_ptr[sockindex] = tls_socket;
+                    fnet_tls_socket_set_hostname(tls_socket, host_name);
+                    if(fnet_tls_socket_connect(tls_socket) == FNET_ERR){
+                        Serial.println("TLS handshake failed");
+                        if(EthernetServer::_tls[sockindex]){
+                            fnet_tls_socket_close(EthernetServer::tls_socket_ptr[sockindex]);
+                        }
+                        EthernetServer::_tls[sockindex] = false;
+                        fnet_tls_release(tls_desc);
+                        tls_desc = 0;
+                    }
+                }
+            }
+#endif
             return 1;
         }
         if (stat == SnSR::CLOSED) {
@@ -90,6 +119,49 @@ int EthernetClient::connect(IPAddress ip, uint16_t port)
 	sockindex = Ethernet.socket_num;
 	return 0;
 }
+
+#if FNET_CFG_TLS
+int EthernetClient::connect(const char * host, uint16_t port, bool tls)
+{
+    _tls_en = true;
+    if(_tls_en && tls_desc != 0){
+        EthernetServer::_tls[sockindex] = true;
+    }
+    else if(_tls_en){
+        tls_desc = fnet_tls_init(FNET_TLS_ROLE_CLIENT);
+        if(tls_desc == 0){
+            Serial.println("Failed to initialize TLS Client");
+            EthernetServer::_tls[sockindex] = false;
+            _tls_en = false;
+        }
+        else{
+//            Serial.println("TLS Client made");
+            if(fnet_tls_set_ca_certificate(tls_desc, ca_certificate_buffer, ca_certificate_buffer_size) == FNET_ERR)
+            {
+                Serial.println("TLS ca certificate error.");
+                fnet_tls_release(tls_desc);
+                EthernetServer::_tls[sockindex] = false;
+                _tls_en = false;
+            }
+            else{
+//                Serial.println("TLS socket true");
+                _tls_en = true;
+            }
+        }
+    }
+    else{
+//        _tls_en = false;
+    }
+    return connect(host, port);
+}
+
+int EthernetClient::connect(IPAddress ip, uint16_t port, bool tls)
+{
+    //Probably not supported, maybe
+    _tls_en = false;
+    return connect(ip, port);
+}
+#endif
 
 int EthernetClient::availableForWrite(void)
 {
@@ -114,6 +186,7 @@ size_t EthernetClient::write(const uint8_t *buf, size_t size)
 int EthernetClient::available()
 {
 	if (sockindex >= Ethernet.socket_num) return 0;
+    if (Ethernet.socket_ptr[sockindex] == nullptr) return 0;
 	struct fnet_sockaddr _from;
     fnet_size_t fromlen = sizeof(_from);
     
@@ -136,13 +209,10 @@ int EthernetClient::available()
     }
     int8_t error_handler = fnet_error_get();
     if(error_handler == -20){
+        stop();
         return 0;
     }
     if(ret == -1){
-//        Serial.print("RecvAvailableErr: ");
-//        Serial.send_now();
-//        Serial.println(error_handler);
-//        Serial.send_now();
         _remaining = 0;
         return 0;
     }
@@ -151,18 +221,9 @@ int EthernetClient::available()
         _remoteIP = _from.sa_data;
         _remotePort = FNET_HTONS(_from.sa_port);
         _remaining = ret;
-//        Serial.print("Available: ");
-//        Serial.println(ret);
-//        Serial.send_now();
     }
     
     return _remaining;
-	// TODO: do the Wiznet chips automatically retransmit TCP ACK
-	// packets if they are lost by the network?  Someday this should
-	// be checked by a man-in-the-middle test which discards certain
-	// packets.  If ACKs aren't resent, we would need to check for
-	// returning 0 here and after a timeout do another Sock_RECV
-	// command to cause the Wiznet chip to resend the ACK packet.
 }
 
 int EthernetClient::read(uint8_t *buf, size_t size)
@@ -204,23 +265,17 @@ void EthernetClient::flush()
 void EthernetClient::stop()
 {
 	if (sockindex >= Ethernet.socket_num) return;
+    if (EthernetClass::socket_ptr[sockindex] == nullptr) return;
 
-	// attempt to close the connection gracefully (send a FIN to other side)
+	// attempt to close the connection gracefully (send a FIN to other side or disconnect if already closed)
 	Ethernet.socketDisconnect(sockindex);
-	unsigned long start = millis();
+    Ethernet.socketClose(sockindex);
+    sockindex = Ethernet.socket_num;
+    return; // exit the loop
+}
 
-	// wait up to a second for the connection to close
-	do {
-		if (Ethernet.socketStatus(sockindex) == SnSR::CLOSED) {
-			sockindex = Ethernet.socket_num;
-			return; // exit the loop
-		}
-		delay(1);
-	} while (millis() - start < _timeout);
-
-	// if it hasn't closed, close it forcefully
-	Ethernet.socketClose(sockindex);
-	sockindex = Ethernet.socket_num;
+void EthernetClient::close(){
+    Ethernet.socketDisconnect(sockindex); //Send FIN to other side, but keep connection open
 }
 
 uint8_t EthernetClient::connected()

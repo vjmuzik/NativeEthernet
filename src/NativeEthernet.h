@@ -246,8 +246,12 @@ public:
 	EthernetClient(uint8_t s) : sockindex(s), _timeout(10000), _remaining(0) { }
 
 	uint8_t status();
-	virtual int connect(IPAddress ip, uint16_t port);
-	virtual int connect(const char *host, uint16_t port);
+#if FNET_CFG_TLS
+    virtual int connect(IPAddress ip, uint16_t port, bool tls);
+    virtual int connect(const char *host, uint16_t port, bool tls);
+#endif
+    virtual int connect(IPAddress ip, uint16_t port);
+    virtual int connect(const char *host, uint16_t port);
 	virtual int availableForWrite(void);
 	virtual size_t write(uint8_t);
 	virtual size_t write(const uint8_t *buf, size_t size);
@@ -257,6 +261,7 @@ public:
 	virtual int peek();
 	virtual void flush();
 	virtual void stop();
+    virtual void close();
 	virtual uint8_t connected();
 	virtual operator bool() { return sockindex < Ethernet.socket_num; }
 	virtual bool operator==(const bool value) { return bool() == value; }
@@ -270,7 +275,13 @@ public:
     virtual uint16_t remotePort() { return _remotePort; };
     virtual uint16_t localPort() { return _port; }
 	virtual void setConnectionTimeout(uint16_t timeout) { _timeout = timeout; }
-
+        
+#if FNET_CFG_TLS
+    void setCACert(const char* cert_buf, size_t cert_buf_len){
+        ca_certificate_buffer = (fnet_uint8_t*)cert_buf;
+        ca_certificate_buffer_size = cert_buf_len;
+    }
+#endif
 	friend class EthernetServer;
 
 	using Print::write;
@@ -282,6 +293,14 @@ private:
     IPAddress _remoteIP; // remote IP address for the incoming packet whilst it's being processed
     uint16_t _remotePort; // remote port for the incoming packet whilst it's being processed
     int32_t _remaining;
+        
+#if FNET_CFG_TLS
+    fnet_tls_desc_t tls_desc = 0;
+    bool _tls_en = false;
+    const char* host_name = NULL;
+    fnet_uint8_t* ca_certificate_buffer = (fnet_uint8_t*)mbedtls_test_ca_crt; /* Certificate data. */
+    fnet_size_t ca_certificate_buffer_size = mbedtls_test_ca_crt_len;              /* Size of the certificate buffer. */
+#endif
 };
 
 
@@ -311,6 +330,15 @@ public:
     fnet_service_desc_t service_descriptor;
     
 #if FNET_CFG_TLS
+    void setSRVCert(const char* cert_buf, size_t cert_buf_len){
+        certificate_buffer = (fnet_uint8_t*)cert_buf;
+        certificate_buffer_size = cert_buf_len;
+    }
+    void setSRVKey(const char* key_buf, size_t key_buf_len){
+        private_key_buffer = (fnet_uint8_t*)key_buf;
+        private_key_buffer_size = key_buf_len;
+    }
+    
     static bool* _tls;
     fnet_tls_desc_t tls_desc = 0;
     bool _tls_en;

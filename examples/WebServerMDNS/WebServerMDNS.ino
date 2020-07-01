@@ -57,6 +57,7 @@ void loop() {
             client.println("<br />");
           }
           client.println("</html>");
+          client.close(); //If "Connection: close" make sure to close after printing and before stop to avoid harsh reset
           break;
         }
         if (c == '\n') {

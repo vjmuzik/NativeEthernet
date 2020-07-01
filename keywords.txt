@@ -59,6 +59,9 @@ setServiceName	KEYWORD2
 setStackHeap	KEYWORD2
 setSocketSize	KEYWORD2
 setSocketNum	KEYWORD2
+setSRVCert	KEYWORD2
+setSRVKey	KEYWORD2
+setCACert	KEYWORD2
 
 #######################################
 # Constants (LITERAL1)

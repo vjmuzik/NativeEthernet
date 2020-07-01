@@ -95,6 +95,9 @@ int EthernetClass::begin(uint8_t *mac, unsigned long timeout, unsigned long resp
             socket_buf_transmit[i] = new uint8_t[socket_size];
             socket_buf_receive[i] = new uint8_t[socket_size];
             socket_ptr[i] = nullptr;
+#if FNET_CFG_TLS
+            EthernetServer::_tls[i] = false;
+#endif
         }
         
         init_params.netheap_ptr = stack_heap_ptr;
@@ -223,6 +226,9 @@ void EthernetClass::begin(uint8_t *mac, IPAddress ip, IPAddress dns, IPAddress g
             socket_buf_transmit[i] = new uint8_t[socket_size];
             socket_buf_receive[i] = new uint8_t[socket_size];
             socket_ptr[i] = nullptr;
+#if FNET_CFG_TLS
+            EthernetServer::_tls[i] = false;
+#endif
         }
         
         init_params.netheap_ptr = stack_heap_ptr;

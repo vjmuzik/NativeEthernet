@@ -305,6 +305,7 @@ uint8_t EthernetClass::socketPeek(uint8_t s)
  */
 uint16_t EthernetClass::socketSend(uint8_t s, const uint8_t * buf, uint16_t len)
 {
+    while(socketSendAvailable(s) < len){}
     fnet_ssize_t ret = -1;
 #if FNET_CFG_TLS
     if(EthernetServer::_tls[s]){

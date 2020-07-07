@@ -159,7 +159,7 @@ private:
 	// Send a UDP datagram built up from a sequence of startUDP followed by one or more
 	// calls to bufferData.
 	// return true if the datagram was successfully sent, or false if there was an error
-	static bool socketSendUDP(uint8_t s);
+	static bool socketSendUDP(uint8_t s, fnet_flag_t flags = 0);
 	// Initialize the "random" source port number
 	static void socketPortRand(uint16_t n);
     

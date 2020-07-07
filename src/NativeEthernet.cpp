@@ -226,6 +226,7 @@ void EthernetClass::begin(uint8_t *mac, IPAddress ip, IPAddress dns, IPAddress g
         for(uint8_t i = 0; i < socket_num; i++){
             socket_buf_transmit[i] = new uint8_t[socket_size];
             socket_buf_receive[i] = new uint8_t[socket_size];
+            socket_addr[i] = new uint8_t[4];
             socket_ptr[i] = nullptr;
 #if FNET_CFG_TLS
             EthernetServer::_tls[i] = false;

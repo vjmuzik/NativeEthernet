@@ -56,7 +56,7 @@ void EthernetClass::setSocketSize(size_t _socket_size){
 
 void EthernetClass::setSocketNum(uint8_t _socket_num){
     if(socket_num != 0) return;
-    if(socket_num > FNET_CFG_SOCKET_MAX) socket_num = FNET_CFG_SOCKET_MAX;
+    if(_socket_num > FNET_CFG_SOCKET_MAX) socket_num = FNET_CFG_SOCKET_MAX;
     else socket_num = _socket_num;
 }
 

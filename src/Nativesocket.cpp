@@ -48,15 +48,23 @@ void EthernetClass::socketPortRand(uint16_t n)
 uint8_t EthernetClass::socketBegin(uint8_t protocol, uint16_t port)
 {
         uint8_t s, maxindex = socket_num;
-            // look at all the hardware sockets, use any that are closed (unused)
-            for (s=0; s < maxindex; s++) {
-                if(socket_ptr[s] == nullptr){
-                    
-                    goto makesocket;
-                }
+        // look at all the hardware sockets, use any that are closed (unused)
+        for (s=0; s < maxindex; s++) {
+            if(socket_ptr[s] == nullptr){
+                
+                goto makesocket;
             }
+        }
+        // As a last resort, forcibly close any already closing
+        for (s=0; s < maxindex; s++) {
+            uint8_t stat = socketStatus(s);
+            if (stat == SnSR::FIN_WAIT) goto closemakesocket;
+            if (stat == SnSR::CLOSE_WAIT) goto closemakesocket;
+        }
         return socket_num;
     
+closemakesocket:
+    socketClose(s);
 makesocket:
     struct fnet_sockaddr_in local_addr;
     
@@ -217,15 +225,15 @@ void EthernetClass::socketConnect(uint8_t s, uint8_t * addr, uint16_t port)
     remoteaddr.sin_family = AF_INET;
     remoteaddr.sin_port = FNET_HTONS(port);
     remoteaddr.sin_addr.s_addr = *(fnet_ip4_addr_t*)addr;
-    fnet_socket_connect(socket_ptr[s], (struct fnet_sockaddr*)&remoteaddr, sizeof(remoteaddr));
-//    fnet_return_t ret = fnet_socket_connect(socket_ptr[s], (struct fnet_sockaddr*)&remoteaddr, sizeof(remoteaddr));
-//    if(ret == FNET_ERR){
-//        int8_t error_handler = fnet_error_get();
-//        Serial.print("Connect Err: ");
-//        Serial.send_now();
-//        Serial.println(error_handler);
-//        Serial.send_now();
-//    }
+//    fnet_socket_connect(socket_ptr[s], (struct fnet_sockaddr*)&remoteaddr, sizeof(remoteaddr));
+    fnet_return_t ret = fnet_socket_connect(socket_ptr[s], (struct fnet_sockaddr*)&remoteaddr, sizeof(remoteaddr));
+    if(ret == FNET_ERR){
+        int8_t error_handler = fnet_error_get();
+        Serial.print("Connect Err: ");
+        Serial.send_now();
+        Serial.println(error_handler);
+        Serial.send_now();
+    }
 }
 
 
@@ -318,10 +326,10 @@ uint16_t EthernetClass::socketSend(uint8_t s, const uint8_t * buf, uint16_t len)
     ret = fnet_socket_send(socket_ptr[s], buf, len, 0);
 #endif
     if(ret == -1) {
-                int8_t error_handler = fnet_error_get();
-                    Serial.print("SendErr: ");
-                    Serial.send_now();
-                    Serial.println(error_handler);
+        int8_t error_handler = fnet_error_get();
+        Serial.print("SendErr: ");
+        Serial.send_now();
+        Serial.println(error_handler);
         return 0;
     }
     return  ret;

@@ -62,6 +62,7 @@ setSocketNum	KEYWORD2
 setSRVCert	KEYWORD2
 setSRVKey	KEYWORD2
 setCACert	KEYWORD2
+connectPoll	KEYWORD2
 
 #######################################
 # Constants (LITERAL1)

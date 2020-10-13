@@ -282,7 +282,7 @@ void EthernetClass::begin(uint8_t *mac, IPAddress ip, IPAddress dns, IPAddress g
     }
     else{
 //        Serial.println("Error:TCP/IP stack already initialized.");
-        return;
+//        return;
     }
     
     fnet_netif_set_ip4_addr(fnet_netif_get_default(), ip, subnet);

@@ -28,49 +28,48 @@ fnet_tls_socket_t* EthernetServer::tls_socket_ptr;
 bool* EthernetServer::_tls;
 #endif
 
-
 void EthernetServer::begin()
 {
-	uint8_t sockindex = Ethernet.socketBegin(SnMR::TCP, _port);
-	if (sockindex < Ethernet.socket_num) {
-		if (Ethernet.socketListen(sockindex)) {
-			server_port[sockindex] = _port;
-            service_descriptor = fnet_service_register(poll, this);
+   uint8_t sockindex = Ethernet.socketBegin(SnMR::TCP, _port);
+   if (sockindex < Ethernet.socket_num) {
+	   if (Ethernet.socketListen(sockindex)) {
+		   server_port[sockindex] = _port;
+		   service_descriptor = fnet_service_register(poll, this);
 #if FNET_CFG_TLS
-            if(_tls_en && tls_desc != 0){
-                _tls[sockindex] = true;
-            }
-            else if(_tls_en){
-                tls_desc = fnet_tls_init(FNET_TLS_ROLE_SERVER);
-                if(tls_desc == 0){
-                    Serial.println("Failed to initialize TLS");
-                    _tls[sockindex] = false;
-                    _tls_en = false;
-                }
-                else{
-                    if(fnet_tls_set_own_certificate(tls_desc, certificate_buffer, certificate_buffer_size, private_key_buffer, private_key_buffer_size) == FNET_ERR)
-                    {
-                        Serial.println("TLS certificate error.");
-                        fnet_tls_release(tls_desc);
-                        _tls[sockindex] = false;
-                        _tls_en = false;
-                    }
-                    else{
-                        _tls[sockindex] = true;
-                    }
-                }
-            }
-            else{
-                _tls[sockindex] = false;
-            }
+		   if(_tls_en && tls_desc != 0){
+			   _tls[sockindex] = true;
+		   }
+		   else if(_tls_en){
+			   tls_desc = fnet_tls_init(FNET_TLS_ROLE_SERVER);
+			   if(tls_desc == 0){
+				   Serial.println("Failed to initialize TLS");
+				   _tls[sockindex] = false;
+				   _tls_en = false;
+			   }
+			   else{
+				   if(fnet_tls_set_own_certificate(tls_desc, certificate_buffer, certificate_buffer_size, private_key_buffer, private_key_buffer_size) == FNET_ERR)
+				   {
+					   Serial.println("TLS certificate error.");
+					   fnet_tls_release(tls_desc);
+					   _tls[sockindex] = false;
+					   _tls_en = false;
+				   }
+				   else{
+					   _tls[sockindex] = true;
+				   }
+			   }
+		   }
+		   else{
+			   _tls[sockindex] = false;
+		   }
 #endif
-            if(service_descriptor == 0){
-                Ethernet.socketDisconnect(sockindex);
-            }
-		} else {
-			Ethernet.socketDisconnect(sockindex);
-		}
-	}
+		   if(service_descriptor == 0){
+			   Ethernet.socketDisconnect(sockindex);
+		   }
+	   } else {
+		   Ethernet.socketDisconnect(sockindex);
+	   }
+   }
 }
 
 EthernetClient EthernetServer::available()
@@ -99,6 +98,7 @@ EthernetClient EthernetServer::available()
 					// remote host closed connection, our end still open
 					if (stat == SnSR::CLOSE_WAIT) {
 						Ethernet.socketDisconnect(i);
+						Ethernet.socketClose(i);
 						// status becomes LAST_ACK for short time
 					}
 				}

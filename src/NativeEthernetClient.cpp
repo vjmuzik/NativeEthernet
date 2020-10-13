@@ -61,11 +61,7 @@ int EthernetClient::connect(IPAddress ip, uint16_t port)
 		}
 		sockindex = Ethernet.socket_num;
 	}
-#if defined(ESP8266) || defined(ESP32)
-	if (ip == IPAddress((uint32_t)0) || ip == IPAddress(0xFFFFFFFFul)) return 0;
-#else
 	if (ip == IPAddress(0ul) || ip == IPAddress(0xFFFFFFFFul)) return 0;
-#endif
 //    Using a port number of 0 causes the service provider to
 //    assign a unique ephemeral port number to the socket with
 //    a value between 49152 to 65535 (sugested by IANA)
@@ -74,52 +70,62 @@ int EthernetClient::connect(IPAddress ip, uint16_t port)
 	Ethernet.socketConnect(sockindex, rawIPAddress(ip), port);
     _port = port;
 	uint32_t start = millis();
+    _connectIP = ip;
+    _connectPort = port;
+    if(_connectPoll) return 1;
 	while (1) {
-		uint8_t stat = Ethernet.socketStatus(sockindex);
-//        Serial.print("Connect: ");
-//        Serial.println(stat, HEX);
-//        Serial.print("Sock Index: ");
-//        Serial.println(sockindex);
-        if (stat == SnSR::ESTABLISHED || stat == SnSR::CLOSE_WAIT) {
-            _remoteIP = ip;
-            _remotePort = port;
-#if FNET_CFG_TLS
-            if(_tls_en && tls_desc != 0){
-//                Serial.println("TLS socket create");
-                fnet_tls_socket_t tls_socket = fnet_tls_socket(tls_desc, Ethernet.socket_ptr[sockindex]);
-                if(tls_socket == FNET_NULL){
-                    Serial.println("Failed to create TLS client socket");
-                    EthernetServer::_tls[sockindex] = false;
-                }
-                else{
-//                    Serial.println("TLS socket made");
-                    EthernetServer::_tls[sockindex] = true;
-                    EthernetServer::tls_socket_ptr[sockindex] = tls_socket;
-                    fnet_tls_socket_set_hostname(tls_socket, host_name);
-                    if(fnet_tls_socket_connect(tls_socket) == FNET_ERR){
-                        Serial.println("TLS handshake failed");
-                        if(EthernetServer::_tls[sockindex]){
-                            fnet_tls_socket_close(EthernetServer::tls_socket_ptr[sockindex]);
-                        }
-                        EthernetServer::_tls[sockindex] = false;
-                        fnet_tls_release(tls_desc);
-                        tls_desc = 0;
-                    }
-                }
-            }
-#endif
-            return 1;
-        }
-        if (stat == SnSR::CLOSED) {
-            Ethernet.socketClose(sockindex);
-            return 0;
-        }
+        if(connectPoll()) return 1;
 		if (millis() - start > _timeout) break;
 		delay(1);
 	}
 	Ethernet.socketClose(sockindex);
 	sockindex = Ethernet.socket_num;
 	return 0;
+}
+
+int EthernetClient::connectPoll(){
+    uint8_t stat = Ethernet.socketStatus(sockindex);
+//    if(stat != 0x13){
+//        Serial.print("Connect: ");
+//        Serial.println(stat, HEX);
+//        Serial.print("Sock Index: ");
+//        Serial.println(sockindex);
+//    }
+    if (stat == SnSR::ESTABLISHED || stat == SnSR::CLOSE_WAIT) {
+        _remoteIP = _connectIP;
+        _remotePort = _connectPort;
+#if FNET_CFG_TLS
+        if(_tls_en && tls_desc != 0){
+//                Serial.println("TLS socket create");
+            fnet_tls_socket_t tls_socket = fnet_tls_socket(tls_desc, Ethernet.socket_ptr[sockindex]);
+            if(tls_socket == FNET_NULL){
+                Serial.println("Failed to create TLS client socket");
+                EthernetServer::_tls[sockindex] = false;
+            }
+            else{
+//                    Serial.println("TLS socket made");
+                EthernetServer::_tls[sockindex] = true;
+                EthernetServer::tls_socket_ptr[sockindex] = tls_socket;
+                fnet_tls_socket_set_hostname(tls_socket, host_name);
+                if(fnet_tls_socket_connect(tls_socket) == FNET_ERR){
+                    Serial.println("TLS handshake failed");
+                    if(EthernetServer::_tls[sockindex]){
+                        fnet_tls_socket_close(EthernetServer::tls_socket_ptr[sockindex]);
+                    }
+                    EthernetServer::_tls[sockindex] = false;
+                    fnet_tls_release(tls_desc);
+                    tls_desc = 0;
+                }
+            }
+        }
+#endif
+        return 1;
+    }
+    if (stat == SnSR::CLOSED) {
+        Ethernet.socketClose(sockindex);
+        return 0;
+    }
+    return 0;
 }
 
 #if FNET_CFG_TLS
@@ -209,12 +215,29 @@ int EthernetClient::available()
         Ethernet.socket_buf_index[sockindex] = 0;
 #endif
     }
-    int8_t error_handler = fnet_error_get();
-    if(error_handler == -20){
-        stop();
-        return 0;
-    }
     if(ret == -1){
+        uint8_t s = Ethernet.socketStatus(sockindex);
+        if (s == SnSR::CLOSE_WAIT || s == SnSR::CLOSED || s == SnSR::INIT) return 0;
+        int8_t error_handler = fnet_error_get();
+        if(error_handler == -20){
+//            Serial.print("RecvErr: ");
+//            Serial.send_now();
+//            Serial.print(error_handler);
+//            Serial.print("  Ret: ");
+//            Serial.print(ret);
+//            Serial.print("  Remaining: ");
+//            Serial.println(_remaining);
+//            stop();
+            return 0;
+        }
+        Serial.print("SockIndex: ");
+        Serial.print(sockindex, HEX);
+        Serial.print("  SockStatus: ");
+        Serial.print(s, HEX);
+        Serial.print("  ");
+        Serial.print("RecvErr: ");
+        Serial.send_now();
+        Serial.println(error_handler);
         _remaining = 0;
         return 0;
     }
@@ -302,5 +325,6 @@ bool EthernetClient::operator==(const EthernetClient& rhs)
 	if (sockindex != rhs.sockindex) return false;
 	if (sockindex >= Ethernet.socket_num) return false;
 	if (rhs.sockindex >= Ethernet.socket_num) return false;
+    getClientAddress();
 	return true;
 }

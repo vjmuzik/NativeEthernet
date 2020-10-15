@@ -285,14 +285,13 @@ void EthernetClass::begin(uint8_t *mac, IPAddress ip, IPAddress dns, IPAddress g
 //        return;
     }
     
+    fnet_dhcp_cln_release(fnet_dhcp_cln_get_by_netif(fnet_netif_get_default()));
     fnet_netif_set_ip4_addr(fnet_netif_get_default(), ip, subnet);
     fnet_netif_set_ip4_gateway(fnet_netif_get_default(), gateway);
     fnet_netif_set_ip4_dns(fnet_netif_get_default(), dns);
     
     while(!link_status){
     }
-    
-    
 }
 
 void EthernetClass::init(uint8_t sspin)

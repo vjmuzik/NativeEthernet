@@ -143,19 +143,16 @@ int EthernetUDP::parsePacket()
         Ethernet.socket_buf_index[sockindex] = 0;
 
 		//read 8 header bytes and get IP and port from it
-        int8_t error_handler = fnet_error_get();
-                if(ret == -1){
-//                    Serial.print("RecvErr: ");
-//                    Serial.send_now();
-//                    Serial.println(error_handler);
-//                    Serial.print("Socket Index: ");
-//                    Serial.println(sockindex);
-//                    Serial.print("Remaining: ");
-//                    Serial.println(_remaining);
-//                    Serial.send_now();
-                    return 0;
-                }
-        if(error_handler == -6){
+        if(ret == -1){
+//            int8_t error_handler = fnet_error_get();
+//            Serial.print("RecvErr: ");
+//            Serial.send_now();
+//            Serial.println(error_handler);
+//            Serial.print("Socket Index: ");
+//            Serial.println(sockindex);
+//            Serial.print("Remaining: ");
+//            Serial.println(_remaining);
+//            Serial.send_now();
             return 0;
         }
 		if (ret > 0) {

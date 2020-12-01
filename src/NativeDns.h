@@ -29,7 +29,7 @@ public:
 	int getHostByName(const char* aHostname, IPAddress& aResult, uint16_t timeout=5000);
 
 protected:
-    static void fnet_dns_callback(const fnet_dns_resolved_addr_t* addr_list, long unsigned int addr_list_size, void* cookie);
+    static void fnet_dns_callback(const fnet_dns_resolved_addr_t* addr_list, long unsigned int addr_list_size, const char* host_name, void* cookie);
 
 	IPAddress iDNSServer;
     volatile fnet_ssize_t resolveDone;

@@ -22,7 +22,7 @@ int DNSClient::inet_aton(const char* address, IPAddress& result)
     return 1;
 }
 
-void DNSClient::fnet_dns_callback(const fnet_dns_resolved_addr_t* addr_list, long unsigned int addr_list_size, void* cookie)
+void DNSClient::fnet_dns_callback(const fnet_dns_resolved_addr_t* addr_list, long unsigned int addr_list_size, const char* host_name, void* cookie)
 {
     DNSClient* dns_p = (DNSClient*)cookie;
     if(addr_list == FNET_NULL){

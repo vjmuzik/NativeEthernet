@@ -405,7 +405,7 @@ fnet_time_t EthernetClass::timer_get_ms(void){ //Used for multi-thread version
 
 void EthernetClass::link_callback(fnet_netif_desc_t netif, fnet_bool_t connected, void *callback_param){
 //  Serial.println(connected ? "Link Connected!" : "Link Disconnected!");
-  link_status = connected;
+  link_status = connected ? LinkON : LinkOFF;
   if(connected){
 //    Serial.println("Initialising Services!");
 //    init_services(netif);

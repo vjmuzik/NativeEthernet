@@ -157,13 +157,13 @@ int EthernetClass::begin(uint8_t *mac, unsigned long timeout, unsigned long resp
     
     while(!fnet_dhcp_cln_is_enabled(fnet_dhcp_cln_get_by_netif(fnet_netif_get_default()))){
         //Wait for dhcp initialization
-        if(millis() >= startMillis + timeout) return false;
+        if(millis() - startMillis >= timeout) return false;
     }
     
     struct fnet_dhcp_cln_options current_options;
     do {//Wait for IP Address
         fnet_dhcp_cln_get_options(fnet_dhcp_cln_get_by_netif(fnet_netif_get_default()), &current_options);
-        if(millis() >= startMillis + timeout) return false;
+        if(millis() - startMillis >= timeout) return false;
     } while (!current_options.ip_address.s_addr);
     
     return true;

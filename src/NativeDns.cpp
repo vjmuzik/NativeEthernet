@@ -49,6 +49,13 @@ void DNSClient::fnet_dns_callback(const fnet_dns_resolved_addr_t* addr_list, lon
 
 int DNSClient::getHostByName(const char* aHostname, IPAddress& aResult, uint16_t timeout)
 {
+    // See if it's a numeric IP address
+    if (inet_aton(aHostname, aResult)) 
+    {
+      // It is, our work here is done
+      return 1;
+    }
+	
     resolveDone = 0;
     struct fnet_dns_params dns_params = {
         .dns_server_addr = {
